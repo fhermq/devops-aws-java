@@ -26,6 +26,20 @@ Before starting, ensure you have:
 - Git
 - GitHub account with repository created
 
+### GitHub Actions OIDC Provider (Required for CI/CD)
+
+Before running GitHub Actions workflows, create the OIDC provider in your AWS account:
+
+```bash
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com \
+  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1 \
+  --region us-east-1
+```
+
+This allows GitHub Actions to authenticate to AWS without storing long-lived credentials. The workflow will fail without this provider.
+
 ---
 
 ## Initial Setup

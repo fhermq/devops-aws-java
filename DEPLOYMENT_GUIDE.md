@@ -62,9 +62,24 @@ This project implements a production-grade CI/CD pipeline for a Spring Boot micr
 - Region: `us-east-1`
 - Security Group created: `devops-aws-java-alb-sg` (with your IP on port 80)
 
+### GitHub Actions OIDC Provider (Required for CI/CD)
+
+Before running GitHub Actions workflows, create the OIDC provider in your AWS account:
+
+```bash
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com \
+  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1 \
+  --region us-east-1
+```
+
+This is a one-time setup that allows GitHub Actions to authenticate to AWS without storing long-lived credentials.
+
 ### GitHub
 - Repository: `fhermq/devops-aws-java`
 - GitHub Actions enabled
+- GitHub Secret: `AWS_ACCOUNT_ID` set to your AWS account ID
 
 ## Deployment Phases
 

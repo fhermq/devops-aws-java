@@ -33,6 +33,7 @@ See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for detailed instructions.
 
 - **[SETUP.md](SETUP.md)** - Initial setup and configuration (AWS, GitHub, credentials)
 - **[SECURITY.md](SECURITY.md)** - Security best practices and pre-commit checklist
+- **[OIDC_SETUP.md](OIDC_SETUP.md)** - GitHub Actions OIDC provider setup (required for CI/CD)
 - **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** - Complete deployment instructions
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** - How to contribute to this project
 - **[E2E_TEST_PLAN.md](E2E_TEST_PLAN.md)** - End-to-end testing procedures

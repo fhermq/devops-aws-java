@@ -5,11 +5,12 @@ Comprehensive security documentation for the DevOps pipeline, including best pra
 ## 📋 Table of Contents
 
 1. [Security Overview](#security-overview)
-2. [Pre-Commit Security Checklist](#pre-commit-security-checklist)
-3. [Sensitive Files Reference](#sensitive-files-reference)
-4. [Verification Commands](#verification-commands)
-5. [If You Accidentally Commit Secrets](#if-you-accidentally-commit-secrets)
-6. [Best Practices](#best-practices)
+2. [OIDC Provider Setup](#oidc-provider-setup)
+3. [Pre-Commit Security Checklist](#pre-commit-security-checklist)
+4. [Sensitive Files Reference](#sensitive-files-reference)
+5. [Verification Commands](#verification-commands)
+6. [If You Accidentally Commit Secrets](#if-you-accidentally-commit-secrets)
+7. [Best Practices](#best-practices)
 
 ---
 
@@ -45,7 +46,80 @@ All sensitive information has been removed or replaced with variables. The repos
 
 ---
 
-## Pre-Commit Security Checklist
+## OIDC Provider Setup
+
+### Prerequisites: Create GitHub OIDC Provider
+
+Before running GitHub Actions workflows, you must create the OIDC provider in your AWS account. This is a one-time setup.
+
+```bash
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com \
+  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1 \
+  --region us-east-1
+```
+
+### Why This Is Needed
+
+- **GitHub Actions needs to authenticate to AWS**
+- **OIDC provider tells AWS to trust GitHub's tokens**
+- **Without this, workflows fail with:** "No OpenIDConnect provider found"
+
+### When to Run
+
+- Before first GitHub Actions workflow execution
+- Only needs to be done once per AWS account
+- Run locally on your machine (not in GitHub Actions)
+
+### Verify OIDC Provider Created
+
+```bash
+aws iam list-open-id-connect-providers
+```
+
+Should show:
+```
+{
+    "OpenIDConnectProviderList": [
+        {
+            "Arn": "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+        }
+    ]
+}
+```
+
+### How OIDC Works
+
+```
+GitHub Actions
+    ↓
+GitHub generates short-lived token (~1 hour)
+    ↓
+GitHub sends token to AWS OIDC Provider
+    ↓
+AWS verifies token signature using GitHub's public key
+    ↓
+AWS checks trust policy (repo, branch, etc.)
+    ↓
+AWS issues temporary credentials (~1 hour)
+    ↓
+GitHub Actions uses temporary credentials
+    ↓
+Credentials automatically expire
+```
+
+### Benefits vs Access Keys
+
+| Aspect | Access Keys | OIDC |
+|--------|------------|------|
+| **Lifetime** | Long-lived (months/years) | Short-lived (1 hour) |
+| **Rotation** | Manual | Automatic |
+| **Audit Trail** | Hard to track | Clear: repo, branch, commit |
+| **Compromise Risk** | High | Low |
+| **Permissions** | Often too broad | Specific to role |
+
+---
 
 ### ✅ Credentials & Secrets
 - [ ] No AWS account IDs in code files (use variables instead)
