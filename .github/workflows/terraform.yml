@@ -28,6 +28,7 @@ jobs:
   terraform-plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action != 'destroy')
     permissions:
       contents: read
       id-token: write
@@ -113,8 +114,7 @@ jobs:
   terraform-apply:
     name: Terraform Apply
     runs-on: ubuntu-latest
-    needs: terraform-plan
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
     permissions:
       contents: read
       id-token: write
@@ -137,7 +137,12 @@ jobs:
       - name: Terraform Init
         run: terraform -chdir=terraform init
 
+      - name: Terraform Plan (for manual apply)
+        if: github.event_name == 'workflow_dispatch'
+        run: terraform -chdir=terraform plan -out=tfplan
+
       - name: Download plan artifact
+        if: github.event_name == 'push'
         uses: actions/download-artifact@v4
         with:
           name: tfplan
