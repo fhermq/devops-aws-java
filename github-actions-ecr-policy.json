@@ -129,7 +129,8 @@
         "iam:GetInstanceProfile",
         "iam:ListInstanceProfiles",
         "iam:AddRoleToInstanceProfile",
-        "iam:RemoveRoleFromInstanceProfile"
+        "iam:RemoveRoleFromInstanceProfile",
+        "iam:PassRole"
       ],
       "Resource": "*"
     },
