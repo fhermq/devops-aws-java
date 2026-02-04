@@ -1,10 +1,16 @@
-# AWS Configuration
-aws_account_id       = "YOUR_AWS_ACCOUNT_ID"  # Replace with your AWS account ID
-aws_region           = "us-east-1"
+# ============================================================================
+# SENSITIVE VALUES - Set via GitHub Secrets (see GITHUB_SECRETS_SETUP.md)
+# ============================================================================
+# These values are provided by GitHub Actions workflow from secrets
+# Do NOT edit these lines - they will be overwritten by the workflow
+# aws_account_id = "YOUR_AWS_ACCOUNT_ID"  # Set via AWS_ACCOUNT_ID secret
+# aws_region     = "us-east-1"            # Set via AWS_REGION secret
+# github_org     = "YOUR_GITHUB_ORG"      # Set via ORG_NAME secret
+# github_repo    = "YOUR_REPO_NAME"       # Set via REPO_NAME secret
 
-# GitHub Configuration
-github_org           = "YOUR_GITHUB_ORG"      # Replace with your GitHub organization
-github_repo          = "YOUR_REPO_NAME"       # Replace with your repository name
+# ============================================================================
+# PUBLIC CONFIGURATION - Safe to commit to git
+# ============================================================================
 
 # ECR Configuration
 ecr_repository_name  = "devops-aws-java"

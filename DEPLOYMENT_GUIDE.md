@@ -64,17 +64,14 @@ This project implements a production-grade CI/CD pipeline for a Spring Boot micr
 
 ### GitHub Actions OIDC Provider (Required for CI/CD)
 
-Before running GitHub Actions workflows, create the OIDC provider in your AWS account:
+Before running GitHub Actions workflows, you must set up OIDC authentication:
 
-```bash
-aws iam create-open-id-connect-provider \
-  --url https://token.actions.githubusercontent.com \
-  --client-id-list sts.amazonaws.com \
-  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1 \
-  --region us-east-1
-```
+1. **Create OIDC Provider** in AWS
+2. **Create IAM Role** for GitHub Actions
 
-This is a one-time setup that allows GitHub Actions to authenticate to AWS without storing long-lived credentials.
+See **[OIDC_SETUP.md](OIDC_SETUP.md)** for complete step-by-step instructions with all commands.
+
+This is a one-time setup that allows GitHub Actions to authenticate to AWS securely without storing long-lived credentials.
 
 ### GitHub
 - Repository: `fhermq/devops-aws-java`

@@ -12,6 +12,8 @@ OIDC (OpenID Connect) allows GitHub Actions to authenticate to AWS without stori
 
 ## One-Time Setup
 
+### Step 1: Create OIDC Provider
+
 Run this command **once** on your local machine:
 
 ```bash
@@ -22,12 +24,88 @@ aws iam create-open-id-connect-provider \
   --region us-east-1
 ```
 
+### Step 2: Create IAM Role for GitHub Actions
+
+Before Terraform can run, you need to create the IAM role manually:
+
+```bash
+# Get your values from terraform/terraform.tfvars
+AWS_ACCOUNT_ID=$(grep "aws_account_id" terraform/terraform.tfvars | awk -F'"' '{print $2}')
+GITHUB_ORG=$(grep "github_org" terraform/terraform.tfvars | awk -F'"' '{print $2}')
+GITHUB_REPO=$(grep "github_repo" terraform/terraform.tfvars | awk -F'"' '{print $2}')
+
+# Create the IAM role with OIDC trust policy
+aws iam create-role \
+  --role-name github-actions-ecr-role \
+  --assume-role-policy-document "{
+    \"Version\": \"2012-10-17\",
+    \"Statement\": [
+      {
+        \"Effect\": \"Allow\",
+        \"Principal\": {
+          \"Federated\": \"arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com\"
+        },
+        \"Action\": \"sts:AssumeRoleWithWebIdentity\",
+        \"Condition\": {
+          \"StringEquals\": {
+            \"token.actions.githubusercontent.com:aud\": \"sts.amazonaws.com\"
+          },
+          \"StringLike\": {
+            \"token.actions.githubusercontent.com:sub\": \"repo:${GITHUB_ORG}/${GITHUB_REPO}:*\"
+          }
+        }
+      }
+    ]
+  }" \
+  --region us-east-1
+
+# Add ECR permissions to the role
+aws iam put-role-policy \
+  --role-name github-actions-ecr-role \
+  --policy-name github-actions-ecr-policy \
+  --policy-document "{
+    \"Version\": \"2012-10-17\",
+    \"Statement\": [
+      {
+        \"Effect\": \"Allow\",
+        \"Action\": [
+          \"ecr:GetAuthorizationToken\"
+        ],
+        \"Resource\": \"*\"
+      },
+      {
+        \"Effect\": \"Allow\",
+        \"Action\": [
+          \"ecr:BatchGetImage\",
+          \"ecr:GetDownloadUrlForLayer\",
+          \"ecr:PutImage\",
+          \"ecr:InitiateLayerUpload\",
+          \"ecr:UploadLayerPart\",
+          \"ecr:CompleteLayerUpload\",
+          \"ecr:DescribeRepositories\",
+          \"ecr:DescribeImages\",
+          \"ecr:ListImages\"
+        ],
+        \"Resource\": \"arn:aws:ecr:us-east-1:${AWS_ACCOUNT_ID}:repository/devops-aws-java\"
+      }
+    ]
+  }" \
+  --region us-east-1
+
+echo "✓ IAM role created successfully"
+echo "GitHub Org: $GITHUB_ORG"
+echo "GitHub Repo: $GITHUB_REPO"
+echo "AWS Account: $AWS_ACCOUNT_ID"
+```
+
 ### Understanding the Parameters
 
 - **`--url`**: GitHub's OIDC token endpoint (official GitHub URL)
 - **`--client-id-list`**: AWS STS service (standard for GitHub Actions)
 - **`--thumbprint-list`**: SHA-1 fingerprint of GitHub's SSL certificate (see below)
 - **`--region`**: AWS region (must match your infrastructure)
+- **`--assume-role-policy-document`**: Trust policy allowing GitHub to assume the role
+- **`--policy-document`**: Permissions for ECR operations
 
 ### About the Thumbprint
 
