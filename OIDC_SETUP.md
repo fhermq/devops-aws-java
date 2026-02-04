@@ -26,7 +26,7 @@ aws iam create-open-id-connect-provider \
 
 ### Step 2: Create IAM Role for GitHub Actions
 
-Before Terraform can run, you need to create the IAM role manually:
+Create the IAM role with OIDC trust policy:
 
 ```bash
 # Get your values from terraform/terraform.tfvars
@@ -58,45 +58,160 @@ aws iam create-role \
     ]
   }" \
   --region us-east-1
+```
 
-# Add ECR permissions to the role
+### Step 3: Add Permissions Policy to IAM Role
+
+Add the comprehensive permissions policy for Terraform infrastructure deployment:
+
+```bash
 aws iam put-role-policy \
   --role-name github-actions-ecr-role \
   --policy-name github-actions-ecr-policy \
-  --policy-document "{
-    \"Version\": \"2012-10-17\",
-    \"Statement\": [
+  --policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [
       {
-        \"Effect\": \"Allow\",
-        \"Action\": [
-          \"ecr:GetAuthorizationToken\"
+        "Effect": "Allow",
+        "Action": [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:PutImage",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload",
+          "ecr:DescribeRepositories",
+          "ecr:DescribeImages",
+          "ecr:ListImages",
+          "ecr:CreateRepository",
+          "ecr:DeleteRepository",
+          "ecr:PutLifecyclePolicy",
+          "ecr:PutImageScanningConfiguration"
         ],
-        \"Resource\": \"*\"
+        "Resource": "*"
       },
       {
-        \"Effect\": \"Allow\",
-        \"Action\": [
-          \"ecr:BatchGetImage\",
-          \"ecr:GetDownloadUrlForLayer\",
-          \"ecr:PutImage\",
-          \"ecr:InitiateLayerUpload\",
-          \"ecr:UploadLayerPart\",
-          \"ecr:CompleteLayerUpload\",
-          \"ecr:DescribeRepositories\",
-          \"ecr:DescribeImages\",
-          \"ecr:ListImages\"
+        "Effect": "Allow",
+        "Action": [
+          "ec2:DescribeAvailabilityZones",
+          "ec2:CreateVpc",
+          "ec2:DeleteVpc",
+          "ec2:DescribeVpcs",
+          "ec2:CreateSubnet",
+          "ec2:DeleteSubnet",
+          "ec2:DescribeSubnets",
+          "ec2:CreateRouteTable",
+          "ec2:DeleteRouteTable",
+          "ec2:DescribeRouteTables",
+          "ec2:CreateRoute",
+          "ec2:DeleteRoute",
+          "ec2:AssociateRouteTable",
+          "ec2:DisassociateRouteTable",
+          "ec2:CreateInternetGateway",
+          "ec2:DeleteInternetGateway",
+          "ec2:DescribeInternetGateways",
+          "ec2:AttachInternetGateway",
+          "ec2:DetachInternetGateway",
+          "ec2:AllocateAddress",
+          "ec2:ReleaseAddress",
+          "ec2:DescribeAddresses",
+          "ec2:CreateNatGateway",
+          "ec2:DeleteNatGateway",
+          "ec2:DescribeNatGateways",
+          "ec2:CreateSecurityGroup",
+          "ec2:DeleteSecurityGroup",
+          "ec2:DescribeSecurityGroups",
+          "ec2:AuthorizeSecurityGroupIngress",
+          "ec2:RevokeSecurityGroupIngress",
+          "ec2:AuthorizeSecurityGroupEgress",
+          "ec2:RevokeSecurityGroupEgress",
+          "ec2:ModifySecurityGroupRules",
+          "ec2:DescribeTags",
+          "ec2:CreateTags",
+          "ec2:DeleteTags",
+          "ec2:RunInstances",
+          "ec2:TerminateInstances",
+          "ec2:DescribeInstances",
+          "ec2:DescribeInstanceStatus",
+          "ec2:DescribeImages",
+          "ec2:DescribeKeyPairs"
         ],
-        \"Resource\": \"arn:aws:ecr:us-east-1:${AWS_ACCOUNT_ID}:repository/devops-aws-java\"
+        "Resource": "*"
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "eks:CreateCluster",
+          "eks:DeleteCluster",
+          "eks:DescribeCluster",
+          "eks:ListClusters",
+          "eks:UpdateClusterConfig",
+          "eks:CreateNodegroup",
+          "eks:DeleteNodegroup",
+          "eks:DescribeNodegroup",
+          "eks:ListNodegroups",
+          "eks:UpdateNodegroupConfig"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "iam:CreateRole",
+          "iam:DeleteRole",
+          "iam:GetRole",
+          "iam:ListRoles",
+          "iam:PutRolePolicy",
+          "iam:DeleteRolePolicy",
+          "iam:GetRolePolicy",
+          "iam:ListRolePolicies",
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
+          "iam:ListAttachedRolePolicies",
+          "iam:CreateOpenIDConnectProvider",
+          "iam:DeleteOpenIDConnectProvider",
+          "iam:GetOpenIDConnectProvider",
+          "iam:ListOpenIDConnectProviders",
+          "iam:TagRole",
+          "iam:UntagRole",
+          "iam:ListRoleTags"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "autoscaling:CreateAutoScalingGroup",
+          "autoscaling:DeleteAutoScalingGroup",
+          "autoscaling:DescribeAutoScalingGroups",
+          "autoscaling:UpdateAutoScalingGroup",
+          "autoscaling:CreateLaunchConfiguration",
+          "autoscaling:DeleteLaunchConfiguration",
+          "autoscaling:DescribeLaunchConfigurations"
+        ],
+        "Resource": "*"
       }
     ]
-  }" \
+  }' \
   --region us-east-1
 
-echo "✓ IAM role created successfully"
+echo "✓ IAM role and policy created successfully"
 echo "GitHub Org: $GITHUB_ORG"
 echo "GitHub Repo: $GITHUB_REPO"
 echo "AWS Account: $AWS_ACCOUNT_ID"
 ```
+
+### Understanding the Permissions
+
+The policy grants permissions for:
+
+- **ECR**: Push/pull Docker images, create/delete repositories
+- **VPC**: Create/manage VPC, subnets, route tables, internet gateways, NAT gateways
+- **EC2**: Manage security groups, instances, availability zones, tags
+- **EKS**: Create/manage Kubernetes clusters and node groups
+- **IAM**: Create/manage roles and policies
+- **Auto Scaling**: Manage auto-scaling groups
 
 ### Understanding the Parameters
 

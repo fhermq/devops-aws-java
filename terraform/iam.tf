@@ -43,7 +43,7 @@ resource "aws_iam_role" "github_actions" {
 
 # IAM Policy for GitHub Actions - Terraform Infrastructure Deployment
 resource "aws_iam_role_policy" "github_actions_ecr" {
-  name = "github-actions-terraform-policy"
+  name = "github-actions-ecr-policy"
   role = aws_iam_role.github_actions.id
 
   policy = jsonencode({
