@@ -10,6 +10,42 @@ OIDC (OpenID Connect) allows GitHub Actions to authenticate to AWS without stori
 - AWS verifies and issues temporary credentials
 - Credentials automatically expire
 
+## Why Manual Setup First?
+
+This is a **bootstrap problem**:
+
+```
+GitHub Actions needs credentials to run Terraform
+    ↓
+But the credentials are an IAM role
+    ↓
+And Terraform is supposed to create the IAM role
+    ↓
+Chicken-and-egg problem! 🐔🥚
+```
+
+**Solution**: Create the OIDC provider and IAM role manually first, then Terraform can use them.
+
+### How It Works
+
+1. **Manual Setup (One-time)** - You run these commands
+   - Creates OIDC Provider
+   - Creates IAM Role
+   - Creates IAM Policy
+
+2. **GitHub Actions Runs** - Workflow uses the manually-created role
+   - Authenticates via OIDC
+   - Runs Terraform
+
+3. **Terraform Manages** - Terraform only manages the policy
+   - References the existing OIDC provider (data source)
+   - References the existing IAM role (data source)
+   - Updates/manages the IAM policy
+
+This is the **correct pattern** for bootstrap resources that need to exist before infrastructure-as-code can run.
+
+---
+
 ## One-Time Setup
 
 ### Step 1: Create OIDC Provider
@@ -206,12 +242,26 @@ echo "AWS Account: $AWS_ACCOUNT_ID"
 
 The policy grants permissions for:
 
-- **ECR**: Push/pull Docker images, create/delete repositories
-- **VPC**: Create/manage VPC, subnets, route tables, internet gateways, NAT gateways
+- **ECR**: Push/pull Docker images, create/delete repositories, tag resources
+- **VPC**: Create/manage VPC, subnets, route tables, internet gateways, NAT gateways, modify VPC attributes
 - **EC2**: Manage security groups, instances, availability zones, tags
 - **EKS**: Create/manage Kubernetes clusters and node groups
-- **IAM**: Create/manage roles and policies
+- **IAM**: Create/manage roles and policies, tag resources and OIDC providers
 - **Auto Scaling**: Manage auto-scaling groups
+
+### What Terraform Does
+
+After you create the OIDC provider and IAM role manually:
+
+1. **Terraform references** the existing OIDC provider (doesn't create it)
+2. **Terraform references** the existing IAM role (doesn't create it)
+3. **Terraform manages** the IAM policy (creates/updates it)
+4. **Terraform creates** all other infrastructure (VPC, EKS, ECR, etc.)
+
+This separation ensures:
+- ✅ Bootstrap resources exist before Terraform runs
+- ✅ No conflicts between manual and IaC setup
+- ✅ Clean, maintainable infrastructure code
 
 ### Understanding the Parameters
 
