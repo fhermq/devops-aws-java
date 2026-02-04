@@ -150,6 +150,98 @@ aws sts get-caller-identity
 
 ---
 
+## Terraform State Backend (S3)
+
+### Why S3 Backend?
+
+By default, Terraform stores state locally (`terraform.tfstate`). For production and team environments, use S3 backend to:
+- ✅ Prevent state loss
+- ✅ Enable team collaboration
+- ✅ Lock state during apply (prevent concurrent runs)
+- ✅ Version state history
+- ✅ Encrypt state at rest
+
+### Setup S3 Backend
+
+**Option A: Automated Setup (Recommended)**
+
+```bash
+# Run the setup script
+bash scripts/setup-terraform-backend.sh
+```
+
+This creates:
+- S3 bucket: `devops-aws-java-terraform-state`
+- DynamoDB table: `terraform-locks`
+- Encryption and versioning enabled
+- Public access blocked
+
+**Option B: Manual Setup**
+
+```bash
+# Create S3 bucket
+aws s3 mb s3://devops-aws-java-terraform-state --region us-east-1
+
+# Enable versioning
+aws s3api put-bucket-versioning \
+  --bucket devops-aws-java-terraform-state \
+  --versioning-configuration Status=Enabled
+
+# Enable encryption
+aws s3api put-bucket-encryption \
+  --bucket devops-aws-java-terraform-state \
+  --server-side-encryption-configuration '{
+    "Rules": [{
+      "ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}
+    }]
+  }'
+
+# Create DynamoDB table for locking
+aws dynamodb create-table \
+  --table-name terraform-locks \
+  --attribute-definitions AttributeName=LockID,AttributeType=S \
+  --key-schema AttributeName=LockID,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST
+```
+
+### Initialize Terraform with S3 Backend
+
+```bash
+# Initialize Terraform (will prompt to migrate state)
+terraform -chdir=terraform init
+
+# When prompted: "Do you want to copy existing state to the new backend?"
+# Answer: yes
+```
+
+### Verify State in S3
+
+```bash
+# List state files in S3
+aws s3 ls s3://devops-aws-java-terraform-state/
+
+# Should show: terraform.tfstate
+```
+
+### State Management
+
+**View current state:**
+```bash
+terraform -chdir=terraform state list
+```
+
+**Backup state locally:**
+```bash
+terraform -chdir=terraform state pull > terraform.tfstate.backup
+```
+
+**Recover from backup:**
+```bash
+terraform -chdir=terraform state push terraform.tfstate.backup
+```
+
+---
+
 ## GitHub Configuration
 
 ### Step 1: Add GitHub Secret
