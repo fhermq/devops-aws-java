@@ -41,14 +41,15 @@ resource "aws_iam_role" "github_actions" {
   }
 }
 
-# IAM Policy for ECR Push/Pull
+# IAM Policy for GitHub Actions - Terraform Infrastructure Deployment
 resource "aws_iam_role_policy" "github_actions_ecr" {
-  name = "github-actions-ecr-policy"
+  name = "github-actions-terraform-policy"
   role = aws_iam_role.github_actions.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
+      # ECR Permissions
       {
         Effect = "Allow"
         Action = [
@@ -67,9 +68,125 @@ resource "aws_iam_role_policy" "github_actions_ecr" {
           "ecr:CompleteLayerUpload",
           "ecr:DescribeRepositories",
           "ecr:DescribeImages",
-          "ecr:ListImages"
+          "ecr:ListImages",
+          "ecr:CreateRepository",
+          "ecr:DeleteRepository",
+          "ecr:PutLifecyclePolicy",
+          "ecr:PutImageScanningConfiguration"
         ]
-        Resource = aws_ecr_repository.microservice.arn
+        Resource = "arn:aws:ecr:${data.aws_caller_identity.current.region}:${data.aws_caller_identity.current.account_id}:repository/*"
+      },
+      # VPC and Networking Permissions
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:CreateVpc",
+          "ec2:DeleteVpc",
+          "ec2:DescribeVpcs",
+          "ec2:CreateSubnet",
+          "ec2:DeleteSubnet",
+          "ec2:DescribeSubnets",
+          "ec2:CreateRouteTable",
+          "ec2:DeleteRouteTable",
+          "ec2:DescribeRouteTables",
+          "ec2:CreateRoute",
+          "ec2:DeleteRoute",
+          "ec2:AssociateRouteTable",
+          "ec2:DisassociateRouteTable",
+          "ec2:CreateInternetGateway",
+          "ec2:DeleteInternetGateway",
+          "ec2:DescribeInternetGateways",
+          "ec2:AttachInternetGateway",
+          "ec2:DetachInternetGateway",
+          "ec2:AllocateAddress",
+          "ec2:ReleaseAddress",
+          "ec2:DescribeAddresses",
+          "ec2:CreateNatGateway",
+          "ec2:DeleteNatGateway",
+          "ec2:DescribeNatGateways",
+          "ec2:DescribeAvailabilityZones",
+          "ec2:CreateSecurityGroup",
+          "ec2:DeleteSecurityGroup",
+          "ec2:DescribeSecurityGroups",
+          "ec2:AuthorizeSecurityGroupIngress",
+          "ec2:RevokeSecurityGroupIngress",
+          "ec2:AuthorizeSecurityGroupEgress",
+          "ec2:RevokeSecurityGroupEgress",
+          "ec2:ModifySecurityGroupRules",
+          "ec2:DescribeTags",
+          "ec2:CreateTags",
+          "ec2:DeleteTags"
+        ]
+        Resource = "*"
+      },
+      # EKS Permissions
+      {
+        Effect = "Allow"
+        Action = [
+          "eks:CreateCluster",
+          "eks:DeleteCluster",
+          "eks:DescribeCluster",
+          "eks:ListClusters",
+          "eks:UpdateClusterConfig",
+          "eks:CreateNodegroup",
+          "eks:DeleteNodegroup",
+          "eks:DescribeNodegroup",
+          "eks:ListNodegroups",
+          "eks:UpdateNodegroupConfig"
+        ]
+        Resource = "*"
+      },
+      # IAM Permissions
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:CreateRole",
+          "iam:DeleteRole",
+          "iam:GetRole",
+          "iam:ListRoles",
+          "iam:PutRolePolicy",
+          "iam:DeleteRolePolicy",
+          "iam:GetRolePolicy",
+          "iam:ListRolePolicies",
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
+          "iam:ListAttachedRolePolicies",
+          "iam:CreateOpenIDConnectProvider",
+          "iam:DeleteOpenIDConnectProvider",
+          "iam:GetOpenIDConnectProvider",
+          "iam:ListOpenIDConnectProviders",
+          "iam:TagRole",
+          "iam:UntagRole",
+          "iam:ListRoleTags"
+        ]
+        Resource = "*"
+      },
+      # EC2 Instance Permissions
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:RunInstances",
+          "ec2:TerminateInstances",
+          "ec2:DescribeInstances",
+          "ec2:DescribeInstanceStatus",
+          "ec2:DescribeImages",
+          "ec2:DescribeKeyPairs"
+        ]
+        Resource = "*"
+      },
+      # Auto Scaling Permissions
+      {
+        Effect = "Allow"
+        Action = [
+          "autoscaling:CreateAutoScalingGroup",
+          "autoscaling:DeleteAutoScalingGroup",
+          "autoscaling:DescribeAutoScalingGroups",
+          "autoscaling:UpdateAutoScalingGroup",
+          "autoscaling:CreateLaunchConfiguration",
+          "autoscaling:DeleteLaunchConfiguration",
+          "autoscaling:DescribeLaunchConfigurations"
+        ]
+        Resource = "*"
       }
     ]
   })
