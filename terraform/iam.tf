@@ -17,7 +17,7 @@ resource "aws_iam_role_policy" "github_actions_ecr" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      # ECR Permissions
+      # ECR Permissions - Push/pull Docker images, manage repositories
       {
         Effect = "Allow"
         Action = [
@@ -40,6 +40,7 @@ resource "aws_iam_role_policy" "github_actions_ecr" {
           "ecr:CreateRepository",
           "ecr:DeleteRepository",
           "ecr:PutLifecyclePolicy",
+          "ecr:GetLifecyclePolicy",
           "ecr:PutImageScanningConfiguration",
           "ecr:TagResource",
           "ecr:UntagResource",
@@ -47,13 +48,14 @@ resource "aws_iam_role_policy" "github_actions_ecr" {
         ]
         Resource = "arn:aws:ecr:${var.aws_region}:${data.aws_caller_identity.current.account_id}:repository/*"
       },
-      # VPC and Networking Permissions
+      # VPC and Networking Permissions - Create/manage VPC, subnets, route tables, gateways
       {
         Effect = "Allow"
         Action = [
           "ec2:CreateVpc",
           "ec2:DeleteVpc",
           "ec2:DescribeVpcs",
+          "ec2:DescribeVpcAttribute",
           "ec2:ModifyVpcAttribute",
           "ec2:CreateSubnet",
           "ec2:DeleteSubnet",
@@ -80,6 +82,7 @@ resource "aws_iam_role_policy" "github_actions_ecr" {
           "ec2:CreateSecurityGroup",
           "ec2:DeleteSecurityGroup",
           "ec2:DescribeSecurityGroups",
+          "ec2:DescribeSecurityGroupRules",
           "ec2:AuthorizeSecurityGroupIngress",
           "ec2:RevokeSecurityGroupIngress",
           "ec2:AuthorizeSecurityGroupEgress",
@@ -87,11 +90,12 @@ resource "aws_iam_role_policy" "github_actions_ecr" {
           "ec2:ModifySecurityGroupRules",
           "ec2:DescribeTags",
           "ec2:CreateTags",
-          "ec2:DeleteTags"
+          "ec2:DeleteTags",
+          "ec2:DescribeNetworkInterfaces"
         ]
         Resource = "*"
       },
-      # EKS Permissions
+      # EKS Cluster Permissions - Create/manage EKS clusters and node groups
       {
         Effect = "Allow"
         Action = [
@@ -104,11 +108,13 @@ resource "aws_iam_role_policy" "github_actions_ecr" {
           "eks:DeleteNodegroup",
           "eks:DescribeNodegroup",
           "eks:ListNodegroups",
-          "eks:UpdateNodegroupConfig"
+          "eks:UpdateNodegroupConfig",
+          "eks:ListUpdates",
+          "eks:DescribeUpdate"
         ]
         Resource = "*"
       },
-      # IAM Permissions
+      # IAM Permissions - Create/manage roles, policies, OIDC providers
       {
         Effect = "Allow"
         Action = [
@@ -132,11 +138,17 @@ resource "aws_iam_role_policy" "github_actions_ecr" {
           "iam:ListRoleTags",
           "iam:TagOpenIDConnectProvider",
           "iam:UntagOpenIDConnectProvider",
-          "iam:ListOpenIDConnectProviderTags"
+          "iam:ListOpenIDConnectProviderTags",
+          "iam:CreateInstanceProfile",
+          "iam:DeleteInstanceProfile",
+          "iam:GetInstanceProfile",
+          "iam:ListInstanceProfiles",
+          "iam:AddRoleToInstanceProfile",
+          "iam:RemoveRoleFromInstanceProfile"
         ]
         Resource = "*"
       },
-      # EC2 Instance Permissions
+      # EC2 Instance Permissions - Launch/terminate instances, describe instance details
       {
         Effect = "Allow"
         Action = [
@@ -145,11 +157,13 @@ resource "aws_iam_role_policy" "github_actions_ecr" {
           "ec2:DescribeInstances",
           "ec2:DescribeInstanceStatus",
           "ec2:DescribeImages",
-          "ec2:DescribeKeyPairs"
+          "ec2:DescribeKeyPairs",
+          "ec2:DescribeInstanceAttribute",
+          "ec2:ModifyInstanceAttribute"
         ]
         Resource = "*"
       },
-      # Auto Scaling Permissions
+      # Auto Scaling Permissions - Create/manage auto-scaling groups and launch configurations
       {
         Effect = "Allow"
         Action = [
@@ -159,7 +173,103 @@ resource "aws_iam_role_policy" "github_actions_ecr" {
           "autoscaling:UpdateAutoScalingGroup",
           "autoscaling:CreateLaunchConfiguration",
           "autoscaling:DeleteLaunchConfiguration",
-          "autoscaling:DescribeLaunchConfigurations"
+          "autoscaling:DescribeLaunchConfigurations",
+          "autoscaling:DescribeAutoScalingInstances",
+          "autoscaling:DescribeScalingActivities"
+        ]
+        Resource = "*"
+      },
+      # ELB/ALB Permissions - Create/manage load balancers and target groups
+      {
+        Effect = "Allow"
+        Action = [
+          "elasticloadbalancing:CreateLoadBalancer",
+          "elasticloadbalancing:DeleteLoadBalancer",
+          "elasticloadbalancing:DescribeLoadBalancers",
+          "elasticloadbalancing:DescribeLoadBalancerAttributes",
+          "elasticloadbalancing:ModifyLoadBalancerAttributes",
+          "elasticloadbalancing:CreateTargetGroup",
+          "elasticloadbalancing:DeleteTargetGroup",
+          "elasticloadbalancing:DescribeTargetGroups",
+          "elasticloadbalancing:DescribeTargetGroupAttributes",
+          "elasticloadbalancing:ModifyTargetGroupAttributes",
+          "elasticloadbalancing:RegisterTargets",
+          "elasticloadbalancing:DeregisterTargets",
+          "elasticloadbalancing:DescribeTargetHealth",
+          "elasticloadbalancing:CreateListener",
+          "elasticloadbalancing:DeleteListener",
+          "elasticloadbalancing:DescribeListeners",
+          "elasticloadbalancing:ModifyListener",
+          "elasticloadbalancing:AddTags",
+          "elasticloadbalancing:RemoveTags"
+        ]
+        Resource = "*"
+      },
+      # ELBv2 (ALB/NLB) Permissions - Advanced load balancer operations
+      {
+        Effect = "Allow"
+        Action = [
+          "elbv2:CreateLoadBalancer",
+          "elbv2:DeleteLoadBalancer",
+          "elbv2:DescribeLoadBalancers",
+          "elbv2:DescribeLoadBalancerAttributes",
+          "elbv2:ModifyLoadBalancerAttributes",
+          "elbv2:CreateTargetGroup",
+          "elbv2:DeleteTargetGroup",
+          "elbv2:DescribeTargetGroups",
+          "elbv2:DescribeTargetGroupAttributes",
+          "elbv2:ModifyTargetGroupAttributes",
+          "elbv2:RegisterTargets",
+          "elbv2:DeregisterTargets",
+          "elbv2:DescribeTargetHealth",
+          "elbv2:CreateListener",
+          "elbv2:DeleteListener",
+          "elbv2:DescribeListeners",
+          "elbv2:ModifyListener",
+          "elbv2:AddTags",
+          "elbv2:RemoveTags",
+          "elbv2:DescribeTags"
+        ]
+        Resource = "*"
+      },
+      # CloudFormation Permissions - For EKS cluster creation (EKS uses CloudFormation internally)
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudformation:CreateStack",
+          "cloudformation:DeleteStack",
+          "cloudformation:DescribeStacks",
+          "cloudformation:DescribeStackEvents",
+          "cloudformation:DescribeStackResource",
+          "cloudformation:DescribeStackResources",
+          "cloudformation:GetTemplate",
+          "cloudformation:ListStacks",
+          "cloudformation:UpdateStack"
+        ]
+        Resource = "*"
+      },
+      # Logs Permissions - For CloudWatch logs (EKS cluster logging)
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:DeleteLogGroup",
+          "logs:DescribeLogGroups",
+          "logs:CreateLogStream",
+          "logs:DeleteLogStream",
+          "logs:DescribeLogStreams",
+          "logs:PutLogEvents",
+          "logs:TagLogGroup",
+          "logs:UntagLogGroup"
+        ]
+        Resource = "*"
+      },
+      # STS Permissions - For assuming roles and getting caller identity
+      {
+        Effect = "Allow"
+        Action = [
+          "sts:GetCallerIdentity",
+          "sts:AssumeRole"
         ]
         Resource = "*"
       }
