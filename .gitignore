@@ -1,0 +1,73 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+!terraform/terraform.tfvars.example
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+tfplan
+eks-plan
+outputs.json
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# AWS
+.aws/
+aws_credentials
+
+# Kubernetes
+kubeconfig
+kubeconfig.yaml
+.kube/
+
+# Docker
+.docker/
+
+# Build artifacts
+target/
+dist/
+build/
+
+# Logs
+*.log
+logs/
+
+# Node modules (if using Node.js tools)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/

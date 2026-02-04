@@ -1,0 +1,24 @@
+# Development environment overrides
+replicaCount: 1
+
+image:
+  tag: latest
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+
+livenessProbe:
+  initialDelaySeconds: 15
+  periodSeconds: 20
+
+readinessProbe:
+  initialDelaySeconds: 10
+  periodSeconds: 10

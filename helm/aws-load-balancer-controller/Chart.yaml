@@ -1,0 +1,13 @@
+apiVersion: v2
+name: aws-load-balancer-controller
+description: AWS Load Balancer Controller for EKS
+type: application
+version: 1.0.0
+appVersion: "2.7.0"
+keywords:
+  - aws
+  - load-balancer
+  - eks
+maintainers:
+  - name: DevOps Team
+    email: devops@example.com

@@ -1,0 +1,41 @@
+# AWS Load Balancer Controller Helm values
+replicaCount: 2
+
+image:
+  repository: public.ecr.aws/eks/aws-load-balancer-controller
+  tag: v2.7.0
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: aws-load-balancer-controller
+  annotations:
+    eks.amazonaws.com/role-arn: ""  # Will be set via --set during install
+
+clusterName: devops-aws-java-cluster
+awsRegion: us-east-1
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Logging
+logLevel: info
+
+# Metrics
+enableMetrics: true
+metricsPort: 8080
+
+# Webhook
+enableWebhook: true
+webhookPort: 8443
