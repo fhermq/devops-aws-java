@@ -1,0 +1,185 @@
+name: Infrastructure Deployment (Terraform)
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Terraform action'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+  push:
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform.yml'
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-1
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  TF_VERSION: 1.0
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-actions-ecr-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform init
+
+      - name: Terraform Validate
+        run: terraform -chdir=terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform -chdir=terraform plan -out=tfplan
+          terraform -chdir=terraform show -json tfplan > tfplan.json
+        continue-on-error: true
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: terraform/tfplan
+          retention-days: 1
+
+      - name: Comment PR with plan
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('terraform/tfplan.json', 'utf8');
+            const planJson = JSON.parse(plan);
+            
+            const comment = `## Terraform Plan
+            
+            **Resources to change:**
+            - Add: ${planJson.resource_changes?.filter(r => r.change.actions.includes('create')).length || 0}
+            - Modify: ${planJson.resource_changes?.filter(r => r.change.actions.includes('update')).length || 0}
+            - Delete: ${planJson.resource_changes?.filter(r => r.change.actions.includes('delete')).length || 0}
+            
+            [View full plan in artifacts]`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  terraform-apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-actions-ecr-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform init
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: terraform
+
+      - name: Terraform Apply
+        run: terraform -chdir=terraform apply -auto-approve tfplan
+
+      - name: Get Terraform Outputs
+        id: outputs
+        run: |
+          terraform -chdir=terraform output -json > outputs.json
+          cat outputs.json
+
+      - name: Upload outputs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-outputs
+          path: outputs.json
+          retention-days: 7
+
+      - name: Deployment summary
+        run: |
+          echo "✓ Infrastructure deployment complete!"
+          echo "Region: ${{ env.AWS_REGION }}"
+          echo "Account: ${{ env.AWS_ACCOUNT_ID }}"
+          echo "Cluster: devops-aws-java-cluster"
+
+  terraform-destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-actions-ecr-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform init
+
+      - name: Terraform Destroy
+        run: terraform -chdir=terraform destroy -auto-approve
+
+      - name: Destruction summary
+        run: |
+          echo "✓ Infrastructure destruction complete!"
+          echo "Region: ${{ env.AWS_REGION }}"
+          echo "Account: ${{ env.AWS_ACCOUNT_ID }}"

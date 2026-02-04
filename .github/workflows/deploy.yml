@@ -8,11 +8,17 @@ on:
       - main
     tags:
       - 'v*'
+    paths-ignore:
+      - 'terraform/**'
+      - '.github/workflows/terraform.yml'
   pull_request:
     branches:
       - develop
       - stage
       - main
+    paths-ignore:
+      - 'terraform/**'
+      - '.github/workflows/terraform.yml'
   workflow_dispatch:
 
 env:
