@@ -91,7 +91,6 @@ resource "aws_iam_role_policy" "github_actions_ecr" {
         ]
         Resource = "*"
       },
-      },
       # EKS Permissions
       {
         Effect = "Allow"
