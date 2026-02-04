@@ -42,6 +42,7 @@
         "ec2:CreateSubnet",
         "ec2:DeleteSubnet",
         "ec2:DescribeSubnets",
+        "ec2:ModifySubnetAttribute",
         "ec2:CreateRouteTable",
         "ec2:DeleteRouteTable",
         "ec2:DescribeRouteTables",
@@ -57,6 +58,7 @@
         "ec2:AllocateAddress",
         "ec2:ReleaseAddress",
         "ec2:DescribeAddresses",
+        "ec2:DescribeAddressesAttribute",
         "ec2:CreateNatGateway",
         "ec2:DeleteNatGateway",
         "ec2:DescribeNatGateways",
@@ -91,7 +93,10 @@
         "eks:ListNodegroups",
         "eks:UpdateNodegroupConfig",
         "eks:ListUpdates",
-        "eks:DescribeUpdate"
+        "eks:DescribeUpdate",
+        "eks:TagResource",
+        "eks:UntagResource",
+        "eks:ListTagsForResource"
       ],
       "Resource": "*"
     },
@@ -182,7 +187,6 @@
       ],
       "Resource": "*"
     },
-
     {
       "Effect": "Allow",
       "Action": [
