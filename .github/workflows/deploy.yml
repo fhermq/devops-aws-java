@@ -323,27 +323,6 @@ jobs:
             --region ${{ env.AWS_REGION }} \
             --name devops-aws-java-cluster
 
-      - name: Install AWS Load Balancer Controller
-        run: |
-          echo "Installing AWS Load Balancer Controller..."
-          
-          # Add Helm repo
-          helm repo add eks https://aws.github.io/eks-charts
-          helm repo update
-          
-          # Check if already installed
-          if helm list -n kube-system | grep -q aws-load-balancer-controller; then
-            echo "Load balancer controller already installed, skipping..."
-          else
-            # Install load balancer controller
-            helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
-              -n kube-system \
-              --set clusterName=devops-aws-java-cluster \
-              --set serviceAccount.roleArn=arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/devops-aws-java-cluster-load-balancer-controller-role \
-              --wait=false
-            echo "✓ Load balancer controller installed"
-          fi
-
       - name: Deploy with Helm
         run: |
           echo "Creating ECR image pull secret..."
@@ -374,7 +353,7 @@ jobs:
       - name: Get LoadBalancer URL
         run: |
           echo "LoadBalancer URL:"
-          kubectl get svc microservice -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+          aws elbv2 describe-load-balancers --region ${{ env.AWS_REGION }} --query 'LoadBalancers[?contains(LoadBalancerName, `devops-aws-java-cluster-nlb`)].DNSName' --output text
 
       - name: Deployment summary
         run: |
