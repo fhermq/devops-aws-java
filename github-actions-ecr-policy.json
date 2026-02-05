@@ -194,7 +194,8 @@
         "elasticloadbalancing:DescribeListeners",
         "elasticloadbalancing:ModifyListener",
         "elasticloadbalancing:AddTags",
-        "elasticloadbalancing:RemoveTags"
+        "elasticloadbalancing:RemoveTags",
+        "elasticloadbalancing:DescribeTags"
       ],
       "Resource": "*"
     },
