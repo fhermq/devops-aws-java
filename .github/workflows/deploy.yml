@@ -189,7 +189,15 @@ jobs:
       - name: Load and push Docker image
         run: |
           docker load --input /tmp/image.tar
+          
+          # Re-authenticate before pushing (in case token expired)
+          echo "Re-authenticating with ECR..."
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+          
+          echo "Pushing image with tag: ${{ steps.image-tag.outputs.tag }}"
           docker push ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ steps.image-tag.outputs.tag }}
+          
+          echo "Pushing image with tag: latest"
           docker push ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
 
       - name: Image scan results
