@@ -145,12 +145,24 @@ output "eks_cluster_arn" {
   value       = aws_eks_cluster.main.arn
 }
 
-# AWS Load Balancer Controller Add-on
-resource "aws_eks_addon" "load_balancer_controller" {
-  cluster_name             = aws_eks_cluster.main.name
-  addon_name               = "aws-load-balancer-controller"
-  addon_version            = "v2.6.0"
-  service_account_role_arn = aws_iam_role.aws_load_balancer_controller.arn
+# AWS Load Balancer Controller via Helm
+# Note: Not available as EKS addon for K8s 1.30, so we install via Helm
+resource "helm_release" "load_balancer_controller" {
+  name       = "aws-load-balancer-controller"
+  repository = "https://aws.github.io/eks-charts"
+  chart      = "aws-load-balancer-controller"
+  namespace  = "kube-system"
+  version    = "2.6.0"
+
+  set {
+    name  = "clusterName"
+    value = aws_eks_cluster.main.name
+  }
+
+  set {
+    name  = "serviceAccount.roleArn"
+    value = aws_iam_role.aws_load_balancer_controller.arn
+  }
 
   depends_on = [
     aws_eks_cluster.main,
@@ -163,7 +175,7 @@ resource "aws_eks_addon" "load_balancer_controller" {
   }
 }
 
-output "load_balancer_controller_addon_status" {
-  description = "AWS Load Balancer Controller Add-on Status"
-  value       = aws_eks_addon.load_balancer_controller.addon_version
+output "load_balancer_controller_status" {
+  description = "AWS Load Balancer Controller Helm Release Status"
+  value       = helm_release.load_balancer_controller.status
 }
