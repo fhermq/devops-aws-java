@@ -144,6 +144,19 @@ jobs:
           role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-actions-ecr-role
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Verify OIDC role assumption
+        run: |
+          echo "Checking assumed role..."
+          IDENTITY=$(aws sts get-caller-identity)
+          echo "$IDENTITY"
+          ROLE=$(echo "$IDENTITY" | jq -r '.Arn')
+          if [[ "$ROLE" == *"github-actions-ecr-role"* ]]; then
+            echo "✓ Successfully assumed github-actions-ecr-role"
+          else
+            echo "✗ Not using github-actions-ecr-role, using: $ROLE"
+            exit 1
+          fi
+
       - name: Verify AWS credentials
         run: |
           echo "Verifying AWS credentials..."
