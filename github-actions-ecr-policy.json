@@ -12,6 +12,7 @@
       "Effect": "Allow",
       "Action": [
         "ecr:BatchGetImage",
+        "ecr:BatchCheckLayerAvailability",
         "ecr:GetDownloadUrlForLayer",
         "ecr:PutImage",
         "ecr:InitiateLayerUpload",
