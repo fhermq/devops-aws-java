@@ -95,9 +95,9 @@ echo "=========================================="
 NLB_ARNS=$(aws elbv2 describe-load-balancers --region $AWS_REGION --query "LoadBalancers[?contains(LoadBalancerName, 'devops-aws-java-cluster-nlb')].LoadBalancerArn" --output text 2>/dev/null || echo "")
 
 if [ -z "$NLB_ARNS" ]; then
-  echo -e "${GREEN}✓ No orphaned NLBs found${NC}"
+  echo -e "${GREEN}✓ No Terraform-managed NLBs found${NC}"
 else
-  echo -e "${YELLOW}Found Network Load Balancers:${NC}"
+  echo -e "${YELLOW}Found Terraform-managed NLBs (may be deprecated):${NC}"
   for nlb_arn in $NLB_ARNS; do
     NLB_NAME=$(echo $nlb_arn | awk -F':' '{print $NF}')
     echo "  - $NLB_NAME"
@@ -112,9 +112,9 @@ echo "=========================================="
 TG_ARNS=$(aws elbv2 describe-target-groups --region $AWS_REGION --query "TargetGroups[?contains(TargetGroupName, 'devops-aws-java-cluster-tg')].TargetGroupArn" --output text 2>/dev/null || echo "")
 
 if [ -z "$TG_ARNS" ]; then
-  echo -e "${GREEN}✓ No orphaned Target Groups found${NC}"
+  echo -e "${GREEN}✓ No Terraform-managed Target Groups found${NC}"
 else
-  echo -e "${YELLOW}Found Target Groups:${NC}"
+  echo -e "${YELLOW}Found Terraform-managed Target Groups (may be deprecated):${NC}"
   for tg_arn in $TG_ARNS; do
     TG_NAME=$(echo $tg_arn | awk -F':' '{print $NF}')
     echo "  - $TG_NAME"

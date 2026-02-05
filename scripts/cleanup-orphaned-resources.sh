@@ -36,8 +36,10 @@ confirm() {
 echo "This script will delete:"
 echo "  - ECR repository: devops-aws-java"
 echo "  - IAM roles: devops-aws-java-cluster-cluster-role, devops-aws-java-cluster-node-role"
-echo "  - Network Load Balancer and Target Group"
+echo "  - Terraform-managed Network Load Balancer and Target Group (if any)"
 echo "  - Associated policies"
+echo ""
+echo "Note: Kubernetes-managed LoadBalancers will be cleaned up automatically when the cluster is destroyed"
 echo ""
 
 if ! confirm "Continue? (yes/no): "; then
