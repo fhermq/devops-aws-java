@@ -17,7 +17,7 @@ resource "aws_lb_target_group" "microservice" {
   port        = 8080
   protocol    = "TCP"
   vpc_id      = aws_vpc.main.id
-  target_type = "ip"
+  target_type = "instance"
 
   health_check {
     healthy_threshold   = 2
@@ -41,6 +41,27 @@ resource "aws_lb_listener" "microservice" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.microservice.arn
+  }
+}
+
+# Register EKS nodes as targets
+resource "aws_lb_target_group_attachment" "microservice" {
+  count            = length(data.aws_instances.eks_nodes.ids)
+  target_group_arn = aws_lb_target_group.microservice.arn
+  target_id        = data.aws_instances.eks_nodes.ids[count.index]
+  port             = 8080
+}
+
+# Data source to get EKS node instances
+data "aws_instances" "eks_nodes" {
+  filter {
+    name   = "tag:eks:nodegroup-name"
+    values = ["${var.eks_cluster_name}-node-group"]
+  }
+
+  filter {
+    name   = "instance-state-name"
+    values = ["running"]
   }
 }
 
