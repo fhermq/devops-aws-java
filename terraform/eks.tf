@@ -152,6 +152,8 @@ resource "helm_release" "load_balancer_controller" {
   repository = "https://aws.github.io/eks-charts"
   chart      = "aws-load-balancer-controller"
   namespace  = "kube-system"
+  timeout    = 600
+  wait       = false
 
   set {
     name  = "clusterName"
