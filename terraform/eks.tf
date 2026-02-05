@@ -145,24 +145,29 @@ output "eks_cluster_arn" {
   value       = aws_eks_cluster.main.arn
 }
 
-# AWS Load Balancer Controller via Helm
-# Note: Not available as EKS addon for K8s 1.30, so we install via Helm
-resource "helm_release" "load_balancer_controller" {
-  name       = "aws-load-balancer-controller"
-  repository = "https://aws.github.io/eks-charts"
-  chart      = "aws-load-balancer-controller"
-  namespace  = "kube-system"
-  timeout    = 600
-  wait       = false
-
-  set {
-    name  = "clusterName"
-    value = aws_eks_cluster.main.name
-  }
-
-  set {
-    name  = "serviceAccount.roleArn"
-    value = aws_iam_role.aws_load_balancer_controller.arn
+# AWS Load Balancer Controller via Helm (using local-exec to work around auth issues)
+resource "null_resource" "load_balancer_controller" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      set -e
+      echo "Installing AWS Load Balancer Controller..."
+      
+      # Update kubeconfig
+      aws eks update-kubeconfig --region ${var.aws_region} --name ${aws_eks_cluster.main.name}
+      
+      # Add Helm repo
+      helm repo add eks https://aws.github.io/eks-charts
+      helm repo update
+      
+      # Install load balancer controller
+      helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
+        -n kube-system \
+        --set clusterName=${aws_eks_cluster.main.name} \
+        --set serviceAccount.roleArn=${aws_iam_role.aws_load_balancer_controller.arn} \
+        --wait=false
+      
+      echo "AWS Load Balancer Controller installed successfully"
+    EOT
   }
 
   depends_on = [
@@ -172,6 +177,6 @@ resource "helm_release" "load_balancer_controller" {
 }
 
 output "load_balancer_controller_status" {
-  description = "AWS Load Balancer Controller Helm Release Status"
-  value       = helm_release.load_balancer_controller.status
+  description = "AWS Load Balancer Controller Installation Status"
+  value       = "Installed via Helm"
 }
