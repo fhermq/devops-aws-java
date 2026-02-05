@@ -36,6 +36,7 @@ confirm() {
 echo "This script will delete:"
 echo "  - ECR repository: devops-aws-java"
 echo "  - IAM roles: devops-aws-java-cluster-cluster-role, devops-aws-java-cluster-node-role"
+echo "  - Network Load Balancer and Target Group"
 echo "  - Associated policies"
 echo ""
 
@@ -99,7 +100,43 @@ delete_role_with_policies "devops-aws-java-cluster-node-role"
 echo ""
 
 echo "=========================================="
-echo "Step 3: Delete Orphaned VPCs"
+echo "Step 3: Delete Network Load Balancer and Target Group"
+echo "=========================================="
+
+# Delete Target Groups
+echo "Deleting Target Groups..."
+TG_ARNS=$(aws elbv2 describe-target-groups --region $AWS_REGION --query "TargetGroups[?contains(TargetGroupName, 'devops-aws-java-cluster-tg')].TargetGroupArn" --output text 2>/dev/null || echo "")
+
+if [ -z "$TG_ARNS" ]; then
+    echo -e "${GREEN}✓ No Target Groups found${NC}"
+else
+    for tg_arn in $TG_ARNS; do
+        echo "  Deleting Target Group: $tg_arn"
+        aws elbv2 delete-target-group --target-group-arn $tg_arn --region $AWS_REGION 2>/dev/null && \
+            echo -e "${GREEN}✓ Target Group deleted${NC}" || \
+            echo -e "${YELLOW}⚠ Target Group not found or already deleted${NC}"
+    done
+fi
+echo ""
+
+# Delete Network Load Balancers
+echo "Deleting Network Load Balancers..."
+NLB_ARNS=$(aws elbv2 describe-load-balancers --region $AWS_REGION --query "LoadBalancers[?contains(LoadBalancerName, 'devops-aws-java-cluster-nlb')].LoadBalancerArn" --output text 2>/dev/null || echo "")
+
+if [ -z "$NLB_ARNS" ]; then
+    echo -e "${GREEN}✓ No Network Load Balancers found${NC}"
+else
+    for nlb_arn in $NLB_ARNS; do
+        echo "  Deleting Network Load Balancer: $nlb_arn"
+        aws elbv2 delete-load-balancer --load-balancer-arn $nlb_arn --region $AWS_REGION 2>/dev/null && \
+            echo -e "${GREEN}✓ Network Load Balancer deleted${NC}" || \
+            echo -e "${YELLOW}⚠ Network Load Balancer not found or already deleted${NC}"
+    done
+fi
+echo ""
+
+echo "=========================================="
+echo "Step 4: Delete Orphaned VPCs"
 echo "=========================================="
 
 # Get all VPCs matching the pattern
@@ -179,7 +216,7 @@ fi
 echo ""
 
 echo "=========================================="
-echo "Step 4: Cleanup Summary"
+echo "Step 5: Cleanup Summary"
 echo "=========================================="
 echo -e "${GREEN}✓ Orphaned resources cleaned up${NC}"
 echo ""

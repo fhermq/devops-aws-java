@@ -123,12 +123,36 @@ fi
 # Check Internet Gateways
 echo ""
 echo "Checking Internet Gateways..."
-IGW_COUNT=$(aws ec2 describe-internet-gateways --filters "Name=tag:Name,Values=devops-aws-java-cluster-igw" --query 'length(InternetGateways)' --output text 2>/dev/null || echo "0")
+IGW_COUNT=$(aws ec2 describe-internet-gateways --filters "Name:tag:Name,Values=devops-aws-java-cluster-igw" --query 'length(InternetGateways)' --output text 2>/dev/null || echo "0")
 if [ "$IGW_COUNT" == "0" ]; then
     echo -e "${GREEN}✓ Internet Gateways: All deleted${NC}"
     ((PASSED++))
 else
     echo -e "${RED}✗ Internet Gateways: $IGW_COUNT still exist${NC}"
+    ((FAILED++))
+fi
+
+# Check Network Load Balancer
+echo ""
+echo "Checking Network Load Balancer..."
+NLB_COUNT=$(aws elbv2 describe-load-balancers --region us-east-1 --query "LoadBalancers[?contains(LoadBalancerName, 'devops-aws-java-cluster-nlb')] | length(@)" --output text 2>/dev/null || echo "0")
+if [ "$NLB_COUNT" == "0" ]; then
+    echo -e "${GREEN}✓ Network Load Balancer: Deleted${NC}"
+    ((PASSED++))
+else
+    echo -e "${RED}✗ Network Load Balancer: $NLB_COUNT still exist${NC}"
+    ((FAILED++))
+fi
+
+# Check Target Group
+echo ""
+echo "Checking Target Group..."
+TG_COUNT=$(aws elbv2 describe-target-groups --region us-east-1 --query "TargetGroups[?contains(TargetGroupName, 'devops-aws-java-cluster-tg')] | length(@)" --output text 2>/dev/null || echo "0")
+if [ "$TG_COUNT" == "0" ]; then
+    echo -e "${GREEN}✓ Target Group: Deleted${NC}"
+    ((PASSED++))
+else
+    echo -e "${RED}✗ Target Group: $TG_COUNT still exist${NC}"
     ((FAILED++))
 fi
 
