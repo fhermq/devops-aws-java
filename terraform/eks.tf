@@ -147,6 +147,11 @@ output "eks_cluster_arn" {
 
 # AWS Load Balancer Controller via Helm (using local-exec to work around auth issues)
 resource "null_resource" "load_balancer_controller" {
+  triggers = {
+    cluster_name = aws_eks_cluster.main.name
+    aws_region   = var.aws_region
+  }
+
   provisioner "local-exec" {
     command = <<-EOT
       set -e
@@ -177,7 +182,7 @@ resource "null_resource" "load_balancer_controller" {
       echo "Uninstalling AWS Load Balancer Controller..."
       
       # Update kubeconfig
-      aws eks update-kubeconfig --region ${var.aws_region} --name ${aws_eks_cluster.main.name}
+      aws eks update-kubeconfig --region ${self.triggers.aws_region} --name ${self.triggers.cluster_name}
       
       # Uninstall load balancer controller
       helm uninstall aws-load-balancer-controller -n kube-system || echo "Load balancer controller not found, skipping"
