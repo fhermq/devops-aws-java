@@ -99,7 +99,13 @@
         "eks:DescribeUpdate",
         "eks:TagResource",
         "eks:UntagResource",
-        "eks:ListTagsForResource"
+        "eks:ListTagsForResource",
+        "eks:CreateAddon",
+        "eks:DeleteAddon",
+        "eks:DescribeAddon",
+        "eks:ListAddons",
+        "eks:UpdateAddon",
+        "eks:DescribeAddonVersions"
       ],
       "Resource": "*"
     },
