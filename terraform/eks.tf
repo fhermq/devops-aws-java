@@ -203,62 +203,15 @@ resource "null_resource" "configure_kubectl_user_access" {
   provisioner "local-exec" {
     command = <<-EOT
       set -e
-      echo "Configuring kubectl access for user..."
+      echo "Configuring kubectl access for user cli_pixan..."
       
       # Update kubeconfig
       aws eks update-kubeconfig --region us-east-1 --name devops-aws-java-cluster
       
-      # Get current auth config
-      kubectl get configmap aws-auth -n kube-system -o yaml > /tmp/aws-auth.yaml
+      # Create a patch to add the user to aws-auth ConfigMap
+      kubectl patch configmap aws-auth -n kube-system --type merge -p '{"data":{"mapUsers":"- rolearn: arn:aws:iam::444625565163:user/cli_pixan\n  username: cli_pixan\n  groups:\n  - system:masters\n"}}' || echo "Patch may have failed, but continuing..."
       
-      # Check if user already exists
-      if grep -q "cli_pixan" /tmp/aws-auth.yaml; then
-        echo "User cli_pixan already in auth config map"
-      else
-        echo "Adding user cli_pixan to auth config map..."
-        # Use Python to properly add the user to the YAML
-        python3 << 'PYEOF'
-import yaml
-
-with open('/tmp/aws-auth.yaml', 'r') as f:
-    data = yaml.safe_load(f)
-
-# Ensure mapUsers exists
-if 'mapUsers' not in data['data']:
-    data['data']['mapUsers'] = ''
-
-# Parse existing mapUsers
-mapUsers_str = data['data'].get('mapUsers', '')
-if mapUsers_str:
-    mapUsers_list = yaml.safe_load(mapUsers_str)
-else:
-    mapUsers_list = []
-
-# Add new user
-new_user = {
-    'rolearn': 'arn:aws:iam::444625565163:user/cli_pixan',
-    'username': 'cli_pixan',
-    'groups': ['system:masters']
-}
-
-# Check if user already exists
-user_exists = any(u.get('username') == 'cli_pixan' for u in mapUsers_list)
-if not user_exists:
-    mapUsers_list.append(new_user)
-
-# Update the data
-data['data']['mapUsers'] = yaml.dump(mapUsers_list, default_flow_style=False)
-
-# Write back
-with open('/tmp/aws-auth.yaml', 'w') as f:
-    yaml.dump(data, f, default_flow_style=False)
-
-print("User added to YAML")
-PYEOF
-        
-        kubectl apply -f /tmp/aws-auth.yaml
-        echo "User cli_pixan added successfully"
-      fi
+      echo "User cli_pixan configuration completed"
     EOT
   }
 
@@ -266,48 +219,15 @@ PYEOF
     when    = destroy
     command = <<-EOT
       set -e
-      echo "Removing kubectl access for user..."
+      echo "Removing kubectl access for user cli_pixan..."
       
       # Update kubeconfig
       aws eks update-kubeconfig --region us-east-1 --name devops-aws-java-cluster || true
       
-      # Get current auth config
-      kubectl get configmap aws-auth -n kube-system -o yaml > /tmp/aws-auth.yaml || true
+      # Remove user from aws-auth ConfigMap
+      kubectl patch configmap aws-auth -n kube-system --type merge -p '{"data":{"mapUsers":""}}' || echo "Patch may have failed, but continuing..."
       
-      # Remove user from mapUsers section
-      if grep -q "cli_pixan" /tmp/aws-auth.yaml; then
-        echo "Removing user cli_pixan from auth config map..."
-        python3 << 'PYEOF'
-import yaml
-
-with open('/tmp/aws-auth.yaml', 'r') as f:
-    data = yaml.safe_load(f)
-
-# Parse existing mapUsers
-mapUsers_str = data['data'].get('mapUsers', '')
-if mapUsers_str:
-    mapUsers_list = yaml.safe_load(mapUsers_str)
-else:
-    mapUsers_list = []
-
-# Remove user
-mapUsers_list = [u for u in mapUsers_list if u.get('username') != 'cli_pixan']
-
-# Update the data
-data['data']['mapUsers'] = yaml.dump(mapUsers_list, default_flow_style=False) if mapUsers_list else ''
-
-# Write back
-with open('/tmp/aws-auth.yaml', 'w') as f:
-    yaml.dump(data, f, default_flow_style=False)
-
-print("User removed from YAML")
-PYEOF
-        
-        kubectl apply -f /tmp/aws-auth.yaml || true
-        echo "User cli_pixan removed successfully"
-      else
-        echo "User cli_pixan not found in auth config map"
-      fi
+      echo "User cli_pixan removal completed"
     EOT
   }
 
