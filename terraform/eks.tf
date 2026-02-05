@@ -216,13 +216,46 @@ resource "null_resource" "configure_kubectl_user_access" {
         echo "User cli_pixan already in auth config map"
       else
         echo "Adding user cli_pixan to auth config map..."
-        # Add user to mapUsers section
-        cat >> /tmp/aws-auth.yaml << 'USEREOF'
-  - rolearn: arn:aws:iam::444625565163:user/cli_pixan
-    username: cli_pixan
-    groups:
-      - system:masters
-USEREOF
+        # Use Python to properly add the user to the YAML
+        python3 << 'PYEOF'
+import yaml
+
+with open('/tmp/aws-auth.yaml', 'r') as f:
+    data = yaml.safe_load(f)
+
+# Ensure mapUsers exists
+if 'mapUsers' not in data['data']:
+    data['data']['mapUsers'] = ''
+
+# Parse existing mapUsers
+mapUsers_str = data['data'].get('mapUsers', '')
+if mapUsers_str:
+    mapUsers_list = yaml.safe_load(mapUsers_str)
+else:
+    mapUsers_list = []
+
+# Add new user
+new_user = {
+    'rolearn': 'arn:aws:iam::444625565163:user/cli_pixan',
+    'username': 'cli_pixan',
+    'groups': ['system:masters']
+}
+
+# Check if user already exists
+user_exists = any(u.get('username') == 'cli_pixan' for u in mapUsers_list)
+if not user_exists:
+    mapUsers_list.append(new_user)
+
+# Update the data
+data['data']['mapUsers'] = yaml.dump(mapUsers_list, default_flow_style=False)
+
+# Write back
+with open('/tmp/aws-auth.yaml', 'w') as f:
+    yaml.dump(data, f, default_flow_style=False)
+
+print("User added to YAML")
+PYEOF
+        
         kubectl apply -f /tmp/aws-auth.yaml
         echo "User cli_pixan added successfully"
       fi
@@ -244,8 +277,32 @@ USEREOF
       # Remove user from mapUsers section
       if grep -q "cli_pixan" /tmp/aws-auth.yaml; then
         echo "Removing user cli_pixan from auth config map..."
-        # Use sed to remove the user block (3 lines: rolearn, username, groups)
-        sed -i '' '/- rolearn: arn:aws:iam::444625565163:user\/cli_pixan/,/- system:masters/d' /tmp/aws-auth.yaml
+        python3 << 'PYEOF'
+import yaml
+
+with open('/tmp/aws-auth.yaml', 'r') as f:
+    data = yaml.safe_load(f)
+
+# Parse existing mapUsers
+mapUsers_str = data['data'].get('mapUsers', '')
+if mapUsers_str:
+    mapUsers_list = yaml.safe_load(mapUsers_str)
+else:
+    mapUsers_list = []
+
+# Remove user
+mapUsers_list = [u for u in mapUsers_list if u.get('username') != 'cli_pixan']
+
+# Update the data
+data['data']['mapUsers'] = yaml.dump(mapUsers_list, default_flow_style=False) if mapUsers_list else ''
+
+# Write back
+with open('/tmp/aws-auth.yaml', 'w') as f:
+    yaml.dump(data, f, default_flow_style=False)
+
+print("User removed from YAML")
+PYEOF
+        
         kubectl apply -f /tmp/aws-auth.yaml || true
         echo "User cli_pixan removed successfully"
       else
