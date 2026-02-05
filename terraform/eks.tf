@@ -196,3 +196,70 @@ output "load_balancer_controller_status" {
   description = "AWS Load Balancer Controller Installation Status"
   value       = "Installed via Helm"
 }
+
+
+# Configure kubectl access for local user
+resource "null_resource" "configure_kubectl_user_access" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      set -e
+      echo "Configuring kubectl access for user..."
+      
+      # Update kubeconfig
+      aws eks update-kubeconfig --region us-east-1 --name devops-aws-java-cluster
+      
+      # Get current auth config
+      kubectl get configmap aws-auth -n kube-system -o yaml > /tmp/aws-auth.yaml
+      
+      # Check if user already exists
+      if grep -q "cli_pixan" /tmp/aws-auth.yaml; then
+        echo "User cli_pixan already in auth config map"
+      else
+        echo "Adding user cli_pixan to auth config map..."
+        # Add user to mapUsers section
+        cat >> /tmp/aws-auth.yaml << 'USEREOF'
+  - rolearn: arn:aws:iam::444625565163:user/cli_pixan
+    username: cli_pixan
+    groups:
+      - system:masters
+USEREOF
+        kubectl apply -f /tmp/aws-auth.yaml
+        echo "User cli_pixan added successfully"
+      fi
+    EOT
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      set -e
+      echo "Removing kubectl access for user..."
+      
+      # Update kubeconfig
+      aws eks update-kubeconfig --region us-east-1 --name devops-aws-java-cluster || true
+      
+      # Get current auth config
+      kubectl get configmap aws-auth -n kube-system -o yaml > /tmp/aws-auth.yaml || true
+      
+      # Remove user from mapUsers section
+      if grep -q "cli_pixan" /tmp/aws-auth.yaml; then
+        echo "Removing user cli_pixan from auth config map..."
+        # Use sed to remove the user block (3 lines: rolearn, username, groups)
+        sed -i '' '/- rolearn: arn:aws:iam::444625565163:user\/cli_pixan/,/- system:masters/d' /tmp/aws-auth.yaml
+        kubectl apply -f /tmp/aws-auth.yaml || true
+        echo "User cli_pixan removed successfully"
+      else
+        echo "User cli_pixan not found in auth config map"
+      fi
+    EOT
+  }
+
+  depends_on = [
+    aws_eks_cluster.main
+  ]
+}
+
+output "kubectl_user_configured" {
+  description = "Status of kubectl user configuration"
+  value       = "User cli_pixan configured for cluster access"
+}
