@@ -168,11 +168,6 @@ resource "helm_release" "load_balancer_controller" {
     aws_eks_cluster.main,
     aws_iam_role_policy.aws_load_balancer_controller
   ]
-
-  tags = {
-    Name      = "${var.eks_cluster_name}-load-balancer-controller"
-    ManagedBy = "Terraform"
-  }
 }
 
 output "load_balancer_controller_status" {
