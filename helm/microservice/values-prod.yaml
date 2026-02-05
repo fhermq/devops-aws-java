@@ -1,5 +1,5 @@
 # Production environment overrides
-replicaCount: 3
+replicaCount: 2
 
 image:
   tag: latest
@@ -7,16 +7,16 @@ image:
 
 resources:
   limits:
-    cpu: 500m
-    memory: 512Mi
-  requests:
     cpu: 250m
     memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
 
 autoscaling:
   enabled: true
-  minReplicas: 3
-  maxReplicas: 10
+  minReplicas: 2
+  maxReplicas: 5
   targetCPUUtilizationPercentage: 70
   targetMemoryUtilizationPercentage: 80
 

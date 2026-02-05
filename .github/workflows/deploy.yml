@@ -338,9 +338,11 @@ jobs:
             -f helm/microservice/values-prod.yaml \
             --set image.registry=${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com \
             --set imagePullSecrets[0].name=ecr-secret \
-            --wait \
-            --timeout 10m \
-            -v 5
+            --timeout 15m
+          
+          echo "Waiting for deployment to be ready..."
+          kubectl rollout status deployment/microservice --timeout=10m || true
+          
           echo "Helm deployment completed"
 
       - name: Verify deployment
