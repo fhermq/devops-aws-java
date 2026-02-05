@@ -144,3 +144,26 @@ output "eks_cluster_arn" {
   description = "EKS Cluster ARN"
   value       = aws_eks_cluster.main.arn
 }
+
+# AWS Load Balancer Controller Add-on
+resource "aws_eks_addon" "load_balancer_controller" {
+  cluster_name             = aws_eks_cluster.main.name
+  addon_name               = "aws-load-balancer-controller"
+  addon_version            = "v2.6.0"
+  service_account_role_arn = aws_iam_role.aws_load_balancer_controller.arn
+
+  depends_on = [
+    aws_eks_cluster.main,
+    aws_iam_role_policy.aws_load_balancer_controller
+  ]
+
+  tags = {
+    Name      = "${var.eks_cluster_name}-load-balancer-controller"
+    ManagedBy = "Terraform"
+  }
+}
+
+output "load_balancer_controller_addon_status" {
+  description = "AWS Load Balancer Controller Add-on Status"
+  value       = aws_eks_addon.load_balancer_controller.addon_version
+}
