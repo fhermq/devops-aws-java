@@ -325,11 +325,23 @@ jobs:
 
       - name: Deploy with Helm
         run: |
+          echo "Creating ECR image pull secret..."
+          kubectl create secret docker-registry ecr-secret \
+            --docker-server=${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com \
+            --docker-username=AWS \
+            --docker-password=$(aws ecr get-login-password --region ${{ env.AWS_REGION }}) \
+            --namespace=default \
+            --dry-run=client -o yaml | kubectl apply -f -
+          
+          echo "Deploying microservice with Helm..."
           helm upgrade --install microservice helm/microservice \
             -f helm/microservice/values-prod.yaml \
             --set image.registry=${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com \
+            --set imagePullSecrets[0].name=ecr-secret \
             --wait \
-            --timeout 5m
+            --timeout 10m \
+            -v 5
+          echo "Helm deployment completed"
 
       - name: Verify deployment
         run: |
