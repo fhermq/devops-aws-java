@@ -147,18 +147,13 @@ output "eks_cluster_arn" {
 
 # AWS Load Balancer Controller via Helm (using local-exec to work around auth issues)
 resource "null_resource" "load_balancer_controller" {
-  triggers = {
-    cluster_name = aws_eks_cluster.main.name
-    aws_region   = var.aws_region
-  }
-
   provisioner "local-exec" {
     command = <<-EOT
       set -e
       echo "Installing AWS Load Balancer Controller..."
       
       # Update kubeconfig
-      aws eks update-kubeconfig --region ${var.aws_region} --name ${aws_eks_cluster.main.name}
+      aws eks update-kubeconfig --region us-east-1 --name devops-aws-java-cluster
       
       # Add Helm repo
       helm repo add eks https://aws.github.io/eks-charts
@@ -167,8 +162,8 @@ resource "null_resource" "load_balancer_controller" {
       # Install load balancer controller
       helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
         -n kube-system \
-        --set clusterName=${aws_eks_cluster.main.name} \
-        --set serviceAccount.roleArn=${aws_iam_role.aws_load_balancer_controller.arn} \
+        --set clusterName=devops-aws-java-cluster \
+        --set serviceAccount.roleArn=arn:aws:iam::444625565163:role/devops-aws-java-cluster-load-balancer-controller-role \
         --wait=false
       
       echo "AWS Load Balancer Controller installed successfully"
@@ -182,7 +177,7 @@ resource "null_resource" "load_balancer_controller" {
       echo "Uninstalling AWS Load Balancer Controller..."
       
       # Update kubeconfig
-      aws eks update-kubeconfig --region ${self.triggers.aws_region} --name ${self.triggers.cluster_name}
+      aws eks update-kubeconfig --region us-east-1 --name devops-aws-java-cluster
       
       # Uninstall load balancer controller
       helm uninstall aws-load-balancer-controller -n kube-system || echo "Load balancer controller not found, skipping"
