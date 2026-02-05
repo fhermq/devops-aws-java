@@ -144,6 +144,13 @@ jobs:
           role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-actions-ecr-role
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Verify AWS credentials
+        run: |
+          echo "Verifying AWS credentials..."
+          aws sts get-caller-identity
+          echo "Testing ECR authorization..."
+          aws ecr get-authorization-token --region ${{ env.AWS_REGION }} || echo "ECR auth failed"
+
       - name: Login to Amazon ECR
         run: |
           aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
@@ -287,6 +294,7 @@ jobs:
         run: |
           helm upgrade --install microservice helm/microservice \
             -f helm/microservice/values-prod.yaml \
+            --set image.registry=${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com \
             --wait \
             --timeout 5m
 
