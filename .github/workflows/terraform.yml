@@ -195,6 +195,17 @@ jobs:
           role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-actions-ecr-role
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Create terraform.tfvars from secrets and defaults
+        run: |
+          cp terraform/terraform.tfvars.example terraform/terraform.tfvars
+          cat >> terraform/terraform.tfvars << 'EOF'
+          
+          aws_account_id = "${{ secrets.AWS_ACCOUNT_ID }}"
+          aws_region     = "${{ secrets.AWS_REGION }}"
+          github_org     = "${{ secrets.ORG_NAME }}"
+          github_repo    = "${{ secrets.REPO_NAME }}"
+          EOF
+
       - name: Terraform Init
         run: terraform -chdir=terraform init
 
