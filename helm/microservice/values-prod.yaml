@@ -1,5 +1,5 @@
 # Production environment overrides
-replicaCount: 2
+replicaCount: 1
 
 image:
   tag: latest
@@ -15,8 +15,8 @@ resources:
 
 autoscaling:
   enabled: true
-  minReplicas: 2
-  maxReplicas: 5
+  minReplicas: 1
+  maxReplicas: 3
   targetCPUUtilizationPercentage: 70
   targetMemoryUtilizationPercentage: 80
 
