@@ -170,6 +170,22 @@ resource "null_resource" "load_balancer_controller" {
     EOT
   }
 
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      set -e
+      echo "Uninstalling AWS Load Balancer Controller..."
+      
+      # Update kubeconfig
+      aws eks update-kubeconfig --region ${var.aws_region} --name ${aws_eks_cluster.main.name}
+      
+      # Uninstall load balancer controller
+      helm uninstall aws-load-balancer-controller -n kube-system || echo "Load balancer controller not found, skipping"
+      
+      echo "AWS Load Balancer Controller uninstalled successfully"
+    EOT
+  }
+
   depends_on = [
     aws_eks_cluster.main,
     aws_iam_role_policy.aws_load_balancer_controller
