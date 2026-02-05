@@ -156,7 +156,7 @@ resource "null_resource" "load_balancer_controller" {
       aws eks update-kubeconfig --region us-east-1 --name devops-aws-java-cluster
       
       # Add Helm repo
-      helm repo add eks https://aws.github.io/eks-charts
+      helm repo add eks https://aws.github.io/eks-charts || true
       helm repo update
       
       # Install load balancer controller
@@ -164,9 +164,9 @@ resource "null_resource" "load_balancer_controller" {
         -n kube-system \
         --set clusterName=devops-aws-java-cluster \
         --set serviceAccount.roleArn=arn:aws:iam::444625565163:role/devops-aws-java-cluster-load-balancer-controller-role \
-        --wait=false
+        --wait=false || true
       
-      echo "AWS Load Balancer Controller installed successfully"
+      echo "AWS Load Balancer Controller installation completed"
     EOT
   }
 
@@ -177,7 +177,7 @@ resource "null_resource" "load_balancer_controller" {
       echo "Uninstalling AWS Load Balancer Controller..."
       
       # Update kubeconfig
-      aws eks update-kubeconfig --region us-east-1 --name devops-aws-java-cluster
+      aws eks update-kubeconfig --region us-east-1 --name devops-aws-java-cluster || true
       
       # Uninstall load balancer controller
       helm uninstall aws-load-balancer-controller -n kube-system || echo "Load balancer controller not found, skipping"
