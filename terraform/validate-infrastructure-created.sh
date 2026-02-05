@@ -122,6 +122,31 @@ else
     ((FAILED++))
 fi
 
+# Check Network Load Balancer
+echo ""
+echo "Checking Network Load Balancer..."
+NLB_COUNT=$(aws elbv2 describe-load-balancers --region us-east-1 --query "LoadBalancers[?contains(LoadBalancerName, 'devops-aws-java-cluster-nlb')] | length(@)" --output text 2>/dev/null || echo "0")
+if [ "$NLB_COUNT" -ge "1" ]; then
+    NLB_DNS=$(aws elbv2 describe-load-balancers --region us-east-1 --query "LoadBalancers[?contains(LoadBalancerName, 'devops-aws-java-cluster-nlb')].DNSName" --output text 2>/dev/null || echo "")
+    echo -e "${GREEN}✓ Network Load Balancer: $NLB_DNS${NC}"
+    ((PASSED++))
+else
+    echo -e "${RED}✗ Network Load Balancer: Not found${NC}"
+    ((FAILED++))
+fi
+
+# Check Target Group
+echo ""
+echo "Checking Target Group..."
+TG_COUNT=$(aws elbv2 describe-target-groups --region us-east-1 --query "TargetGroups[?contains(TargetGroupName, 'devops-aws-java-cluster-tg')] | length(@)" --output text 2>/dev/null || echo "0")
+if [ "$TG_COUNT" -ge "1" ]; then
+    echo -e "${GREEN}✓ Target Group: Created${NC}"
+    ((PASSED++))
+else
+    echo -e "${RED}✗ Target Group: Not found${NC}"
+    ((FAILED++))
+fi
+
 # Summary
 echo ""
 echo "=========================================="
