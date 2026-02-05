@@ -121,28 +121,17 @@ else
     ((FAILED++))
 fi
 
-# Check Network Load Balancer
+# Check Kubernetes-managed LoadBalancer (Classic LB)
 echo ""
-echo "Checking Network Load Balancer..."
-NLB_COUNT=$(aws elbv2 describe-load-balancers --region us-east-1 --query "LoadBalancers[?contains(LoadBalancerName, 'devops-aws-java-cluster-nlb')] | length(@)" --output text 2>/dev/null || echo "0")
-if [ "$NLB_COUNT" -ge "1" ]; then
-    echo -e "${YELLOW}⚠ Terraform-managed NLB found (deprecated - using Kubernetes LoadBalancer instead)${NC}"
+echo "Checking Kubernetes-managed LoadBalancer..."
+CLB_COUNT=$(aws elb describe-load-balancers --region us-east-1 --query "LoadBalancerDescriptions | length(@)" --output text 2>/dev/null || echo "0")
+if [ "$CLB_COUNT" -ge "1" ]; then
+    CLB_DNS=$(aws elb describe-load-balancers --region us-east-1 --query "LoadBalancerDescriptions[0].DNSName" --output text 2>/dev/null || echo "")
+    echo -e "${GREEN}✓ Kubernetes LoadBalancer: $CLB_DNS${NC}"
     ((PASSED++))
 else
-    echo -e "${GREEN}✓ No Terraform-managed NLB (using Kubernetes LoadBalancer)${NC}"
-    ((PASSED++))
-fi
-
-# Check Target Group
-echo ""
-echo "Checking Target Group..."
-TG_COUNT=$(aws elbv2 describe-target-groups --region us-east-1 --query "TargetGroups[?contains(TargetGroupName, 'devops-aws-java-cluster-tg')] | length(@)" --output text 2>/dev/null || echo "0")
-if [ "$TG_COUNT" -ge "1" ]; then
-    echo -e "${YELLOW}⚠ Terraform-managed Target Group found (deprecated - using Kubernetes LoadBalancer instead)${NC}"
-    ((PASSED++))
-else
-    echo -e "${GREEN}✓ No Terraform-managed Target Group (using Kubernetes LoadBalancer)${NC}"
-    ((PASSED++))
+    echo -e "${RED}✗ Kubernetes LoadBalancer: Not found${NC}"
+    ((FAILED++))
 fi
 
 # Summary

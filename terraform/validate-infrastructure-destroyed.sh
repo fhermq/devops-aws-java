@@ -132,27 +132,15 @@ else
     ((FAILED++))
 fi
 
-# Check Network Load Balancer
+# Check Kubernetes-managed LoadBalancer (Classic LB)
 echo ""
-echo "Checking Network Load Balancer..."
-NLB_COUNT=$(aws elbv2 describe-load-balancers --region us-east-1 --query "LoadBalancers[?contains(LoadBalancerName, 'devops-aws-java-cluster-nlb')] | length(@)" --output text 2>/dev/null || echo "0")
-if [ "$NLB_COUNT" == "0" ]; then
-    echo -e "${GREEN}✓ Terraform-managed NLB: Deleted${NC}"
+echo "Checking Kubernetes-managed LoadBalancer..."
+CLB_COUNT=$(aws elb describe-load-balancers --region us-east-1 --query "LoadBalancerDescriptions | length(@)" --output text 2>/dev/null || echo "0")
+if [ "$CLB_COUNT" == "0" ]; then
+    echo -e "${GREEN}✓ Kubernetes LoadBalancer: Deleted${NC}"
     ((PASSED++))
 else
-    echo -e "${YELLOW}⚠ Terraform-managed NLB: $NLB_COUNT still exist (may be managed by Kubernetes)${NC}"
-    ((PASSED++))
-fi
-
-# Check Target Group
-echo ""
-echo "Checking Target Group..."
-TG_COUNT=$(aws elbv2 describe-target-groups --region us-east-1 --query "TargetGroups[?contains(TargetGroupName, 'devops-aws-java-cluster-tg')] | length(@)" --output text 2>/dev/null || echo "0")
-if [ "$TG_COUNT" == "0" ]; then
-    echo -e "${GREEN}✓ Terraform-managed Target Group: Deleted${NC}"
-    ((PASSED++))
-else
-    echo -e "${YELLOW}⚠ Terraform-managed Target Group: $TG_COUNT still exist (may be managed by Kubernetes)${NC}"
+    echo -e "${YELLOW}⚠ Kubernetes LoadBalancer: $CLB_COUNT still exist (will be deleted with cluster)${NC}"
     ((PASSED++))
 fi
 
