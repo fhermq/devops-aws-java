@@ -209,6 +209,26 @@ jobs:
       - name: Terraform Init
         run: terraform -chdir=terraform init
 
+      - name: Clean up Kubernetes-managed resources
+        run: |
+          echo "Cleaning up Kubernetes-managed LoadBalancers..."
+          
+          # Delete all Classic LoadBalancers (created by Kubernetes service type: LoadBalancer)
+          LB_NAMES=$(aws elb describe-load-balancers --region ${{ env.AWS_REGION }} --query "LoadBalancerDescriptions[*].LoadBalancerName" --output text 2>/dev/null || echo "")
+          
+          if [ ! -z "$LB_NAMES" ]; then
+            for lb_name in $LB_NAMES; do
+              echo "  Deleting LoadBalancer: $lb_name"
+              aws elb delete-load-balancer --load-balancer-name "$lb_name" --region ${{ env.AWS_REGION }} 2>/dev/null || true
+            done
+            echo "  Waiting for LoadBalancers to be deleted..."
+            sleep 10
+          else
+            echo "  No LoadBalancers found"
+          fi
+          
+          echo "✓ Kubernetes-managed resources cleaned up"
+
       - name: Terraform Destroy
         run: terraform -chdir=terraform destroy -auto-approve
 
