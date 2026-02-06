@@ -115,17 +115,16 @@ else
     ((FAILED++))
 fi
 
-# Check Kubernetes-managed LoadBalancer (Classic LB)
+# Check Kubernetes-managed Network Load Balancer (NLB)
 echo ""
-echo "Checking Kubernetes-managed LoadBalancer..."
-CLB_COUNT=$(aws elb describe-load-balancers --region us-east-1 --query "LoadBalancerDescriptions | length(@)" --output text 2>/dev/null || echo "0")
-if [ "$CLB_COUNT" -ge "1" ]; then
-    CLB_DNS=$(aws elb describe-load-balancers --region us-east-1 --query "LoadBalancerDescriptions[0].DNSName" --output text 2>/dev/null || echo "")
-    echo -e "${GREEN}✓ Kubernetes LoadBalancer: $CLB_DNS${NC}"
+echo "Checking Kubernetes-managed Network Load Balancer..."
+NLB_COUNT=$(aws elbv2 describe-load-balancers --region us-east-1 --query "LoadBalancers[?Type=='network'] | length(@)" --output text 2>/dev/null || echo "0")
+if [ "$NLB_COUNT" -ge "1" ]; then
+    NLB_DNS=$(aws elbv2 describe-load-balancers --region us-east-1 --query "LoadBalancers[?Type=='network'].DNSName | [0]" --output text 2>/dev/null || echo "")
+    echo -e "${GREEN}✓ Kubernetes NLB: $NLB_DNS${NC}"
     ((PASSED++))
 else
-    echo -e "${YELLOW}⚠ Kubernetes LoadBalancer: Not yet created (will be created when microservice is deployed)${NC}"
-    ((PASSED++))
+    echo -e "${YELLOW}⚠ Kubernetes NLB: Not yet created (expected - will be created when microservice is deployed)${NC}"
 fi
 
 # Summary

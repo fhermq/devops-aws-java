@@ -86,7 +86,8 @@
         "ec2:DisassociateNetworkAcl",
         "ec2:CreateNetworkAclEntry",
         "ec2:DeleteNetworkAclEntry",
-        "ec2:ReplaceNetworkAclEntry"
+        "ec2:ReplaceNetworkAclEntry",
+        "ec2:ReplaceNetworkAclAssociation"
       ],
       "Resource": "*"
     },

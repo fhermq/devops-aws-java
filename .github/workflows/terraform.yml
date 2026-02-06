@@ -209,22 +209,55 @@ jobs:
       - name: Terraform Init
         run: terraform -chdir=terraform init
 
+      - name: Force unlock state (if locked from previous run)
+        run: |
+          LOCK_ID=$(aws dynamodb scan --table-name terraform-locks --region ${{ env.AWS_REGION }} --query 'Items[0].LockID.S' --output text 2>/dev/null || echo "")
+          if [ ! -z "$LOCK_ID" ] && [ "$LOCK_ID" != "None" ]; then
+            echo "Found state lock: $LOCK_ID, forcing unlock..."
+            terraform -chdir=terraform force-unlock -force "$LOCK_ID" || true
+            sleep 5
+          fi
+
       - name: Clean up Kubernetes-managed resources
         run: |
-          echo "Cleaning up Kubernetes-managed LoadBalancers..."
+          echo "Cleaning up Kubernetes-managed resources..."
           
-          # Delete all Classic LoadBalancers (created by Kubernetes service type: LoadBalancer)
+          # Delete EKS node groups FIRST (before cluster)
+          echo "Deleting EKS node groups..."
+          CLUSTER_NAME="devops-aws-java-cluster"
+          NODEGROUPS=$(aws eks list-nodegroups --cluster-name "$CLUSTER_NAME" --region ${{ env.AWS_REGION }} --query "nodegroups[*]" --output text 2>/dev/null || echo "")
+          
+          if [ ! -z "$NODEGROUPS" ]; then
+            for ng in $NODEGROUPS; do
+              echo "  Deleting node group: $ng"
+              aws eks delete-nodegroup --cluster-name "$CLUSTER_NAME" --nodegroup-name "$ng" --region ${{ env.AWS_REGION }} 2>/dev/null || true
+            done
+            echo "  Waiting for node groups to be deleted..."
+            sleep 30
+          fi
+          
+          # Delete all Classic LoadBalancers
+          echo "Deleting Classic LoadBalancers..."
           LB_NAMES=$(aws elb describe-load-balancers --region ${{ env.AWS_REGION }} --query "LoadBalancerDescriptions[*].LoadBalancerName" --output text 2>/dev/null || echo "")
           
           if [ ! -z "$LB_NAMES" ]; then
             for lb_name in $LB_NAMES; do
-              echo "  Deleting LoadBalancer: $lb_name"
+              echo "  Deleting: $lb_name"
               aws elb delete-load-balancer --load-balancer-name "$lb_name" --region ${{ env.AWS_REGION }} 2>/dev/null || true
             done
-            echo "  Waiting for LoadBalancers to be deleted..."
-            sleep 10
-          else
-            echo "  No LoadBalancers found"
+            sleep 15
+          fi
+          
+          # Delete Network Load Balancers (NLB)
+          echo "Deleting Network Load Balancers..."
+          NLB_ARNS=$(aws elbv2 describe-load-balancers --region ${{ env.AWS_REGION }} --query "LoadBalancers[?Type=='network'].LoadBalancerArn" --output text 2>/dev/null || echo "")
+          
+          if [ ! -z "$NLB_ARNS" ]; then
+            for nlb_arn in $NLB_ARNS; do
+              echo "  Deleting: $nlb_arn"
+              aws elbv2 delete-load-balancer --load-balancer-arn "$nlb_arn" --region ${{ env.AWS_REGION }} 2>/dev/null || true
+            done
+            sleep 15
           fi
           
           # Delete Kubernetes-managed security groups
@@ -236,11 +269,9 @@ jobs:
             
             if [ ! -z "$K8S_SG_IDS" ]; then
               for sg_id in $K8S_SG_IDS; do
-                echo "  Deleting security group: $sg_id"
+                echo "  Deleting: $sg_id"
                 aws ec2 delete-security-group --group-id "$sg_id" --region ${{ env.AWS_REGION }} 2>/dev/null || true
               done
-            else
-              echo "  No Kubernetes-managed security groups found"
             fi
           fi
           

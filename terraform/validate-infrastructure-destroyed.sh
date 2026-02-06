@@ -108,15 +108,15 @@ else
     ((FAILED++))
 fi
 
-# Check Kubernetes-managed LoadBalancer (Classic LB)
+# Check Kubernetes-managed Network Load Balancer (NLB)
 echo ""
-echo "Checking Kubernetes-managed LoadBalancer..."
-CLB_COUNT=$(aws elb describe-load-balancers --region us-east-1 --query "LoadBalancerDescriptions | length(@)" --output text 2>/dev/null || echo "0")
-if [ "$CLB_COUNT" == "0" ]; then
-    echo -e "${GREEN}✓ Kubernetes LoadBalancer: Deleted${NC}"
+echo "Checking Kubernetes-managed Network Load Balancer..."
+NLB_COUNT=$(aws elbv2 describe-load-balancers --region us-east-1 --query "LoadBalancers[?Type=='network'] | length(@)" --output text 2>/dev/null || echo "0")
+if [ "$NLB_COUNT" == "0" ]; then
+    echo -e "${GREEN}✓ Kubernetes NLB: Deleted${NC}"
     ((PASSED++))
 else
-    echo -e "${YELLOW}⚠ Kubernetes LoadBalancer: $CLB_COUNT still exist (will be deleted with cluster)${NC}"
+    echo -e "${YELLOW}⚠ Kubernetes NLB: $NLB_COUNT still exist (will be deleted with cluster)${NC}"
     ((PASSED++))
 fi
 
