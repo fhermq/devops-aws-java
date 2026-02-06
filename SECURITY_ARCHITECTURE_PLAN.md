@@ -1,8 +1,8 @@
 # Security Architecture Plan - Option 1 (Simplified)
 
-**Status:** In Progress - Rebuilding Infrastructure  
+**Status:** Implementation Complete - Ready for Deployment  
 **Date:** February 5, 2026  
-**Approach:** Simplified, Private-First Architecture
+**Approach:** Simplified, Private-First Architecture with Manual ACL Restriction
 
 ---
 
@@ -184,17 +184,20 @@ Private Subnets (EKS)
 - [ ] Confirm no orphaned resources
 
 ### Phase 2: Update Terraform Code
-- [ ] Remove NAT Gateway resources
-- [ ] Remove Elastic IP resources
-- [ ] Simplify route tables
-- [ ] Add Network ACLs
-- [ ] Update security groups
-- [ ] Add CloudShell documentation
+- [x] Remove NAT Gateway resources
+- [x] Remove Elastic IP resources
+- [x] Simplify route tables (local only)
+- [x] Add Network ACLs (public + private)
+- [x] Update security groups
+- [x] Add CloudShell documentation
+- [x] Add cleanup step for Kubernetes-managed resources
 
 ### Phase 3: Rebuild Infrastructure
-- [ ] Run Terraform apply
+- [ ] Re-enable workflows in GitHub Actions
+- [ ] Trigger Terraform workflow with `apply` action
 - [ ] Verify all resources created
 - [ ] Confirm ACLs are correct
+- [ ] Manually restrict public ACL to your IP (see below)
 - [ ] Test LoadBalancer access
 
 ### Phase 4: Deploy Microservice
@@ -368,7 +371,61 @@ If Option 1 doesn't work as expected:
 
 ---
 
-## Next Steps
+## Manual ACL Restriction (After Deployment)
+
+### Why Manual?
+- Keeps Terraform simple (no GitHub Secrets needed)
+- Allows flexibility to change your IP without redeploying
+- Easy to update via AWS Console
+
+### Steps to Restrict Public Subnet ACL
+
+1. **Find your public IP:**
+   ```bash
+   curl https://checkip.amazonaws.com
+   ```
+
+2. **Go to AWS Console:**
+   - VPC → Network ACLs
+   - Find: `devops-aws-java-cluster-public-nacl`
+
+3. **Edit Inbound Rule 100:**
+   - Current: `0.0.0.0/0` (allows all)
+   - Change to: `YOUR_IP/32` (e.g., `203.0.113.42/32`)
+   - Port: 80
+   - Protocol: TCP
+
+4. **Verify:**
+   ```bash
+   curl http://LOADBALANCER_DNS/api/hello
+   ```
+
+### To Allow Multiple IPs
+
+If you need access from multiple locations:
+- Add multiple rules (110, 120, etc.)
+- Each rule: `IP/32` on port 80
+
+### To Revert to Open Access
+
+Change rule 100 back to `0.0.0.0/0`
+
+---
+
+## Terraform Configuration Details
+
+### Default Values
+- `allowed_ip = "0.0.0.0"` (allows all initially)
+- Deployed via Terraform without GitHub Secrets
+- Manually restricted via AWS Console
+
+### Why This Approach?
+- ✅ Simpler workflow (no IP secret management)
+- ✅ Flexible (change IP anytime)
+- ✅ Secure (restricted by default after manual update)
+- ✅ No redeployment needed for IP changes
+
+---
 
 1. ✅ Destroy current infrastructure (in progress)
 2. ⏳ Update Terraform code for Option 1
@@ -381,3 +438,16 @@ If Option 1 doesn't work as expected:
 
 **Last Updated:** February 5, 2026  
 **Status:** Awaiting infrastructure destruction completion
+
+
+---
+
+**Last Updated:** February 5, 2026  
+**Status:** Ready for Phase 3 - Infrastructure Rebuild
+
+**Next Actions:**
+1. Re-enable workflows in GitHub Actions
+2. Trigger Terraform workflow with `apply` action
+3. Manually restrict public ACL to your IP (see Manual ACL Restriction section)
+4. Deploy microservice
+5. Test all access patterns

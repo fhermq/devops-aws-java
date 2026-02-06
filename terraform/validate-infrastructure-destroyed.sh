@@ -60,30 +60,6 @@ else
     ((FAILED++))
 fi
 
-# Check NAT Gateways (only count active/pending, not deleted)
-echo ""
-echo "Checking NAT Gateways..."
-NAT_COUNT=$(aws ec2 describe-nat-gateways --filter "Name=tag:Name,Values=devops-aws-java-cluster-nat-*" --query 'NatGateways[?State==`available` || State==`pending`] | length(@)' --output text 2>/dev/null || echo "0")
-if [ "$NAT_COUNT" == "0" ]; then
-    echo -e "${GREEN}✓ NAT Gateways: All deleted${NC}"
-    ((PASSED++))
-else
-    echo -e "${RED}✗ NAT Gateways: $NAT_COUNT still exist${NC}"
-    ((FAILED++))
-fi
-
-# Check Elastic IPs
-echo ""
-echo "Checking Elastic IPs..."
-EIP_COUNT=$(aws ec2 describe-addresses --filters "Name=tag:Name,Values=devops-aws-java-cluster-eip-*" --query 'length(Addresses)' --output text 2>/dev/null || echo "0")
-if [ "$EIP_COUNT" == "0" ]; then
-    echo -e "${GREEN}✓ Elastic IPs: All deleted${NC}"
-    ((PASSED++))
-else
-    echo -e "${RED}✗ Elastic IPs: $EIP_COUNT still exist${NC}"
-    ((FAILED++))
-fi
-
 # Check EKS Cluster
 echo ""
 echo "Checking EKS Cluster..."
