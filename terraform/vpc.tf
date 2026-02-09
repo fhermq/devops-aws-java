@@ -142,28 +142,28 @@ resource "aws_network_acl" "public" {
   }
 }
 
-# Private Subnet Network ACL (allow internal traffic only)
+# Private Subnet Network ACL (allow internal traffic + control plane communication)
 resource "aws_network_acl" "private" {
   vpc_id     = aws_vpc.main.id
   subnet_ids = aws_subnet.private[*].id
 
-  # Inbound: Allow port 8080 from public subnets (LoadBalancer)
+  # Inbound: Allow all from public subnets (LoadBalancer traffic)
   ingress {
-    protocol   = "tcp"
+    protocol   = "-1"
     rule_no    = 100
     action     = "allow"
     cidr_block = aws_subnet.public[0].cidr_block
-    from_port  = 8080
-    to_port    = 8080
+    from_port  = 0
+    to_port    = 0
   }
 
   ingress {
-    protocol   = "tcp"
+    protocol   = "-1"
     rule_no    = 110
     action     = "allow"
     cidr_block = aws_subnet.public[1].cidr_block
-    from_port  = 8080
-    to_port    = 8080
+    from_port  = 0
+    to_port    = 0
   }
 
   # Inbound: Allow all from private subnets (pod-to-pod communication)
@@ -185,22 +185,12 @@ resource "aws_network_acl" "private" {
     to_port    = 0
   }
 
-  # Outbound: Allow HTTPS to control plane (outside VPC)
+  # Outbound: Allow all traffic (nodes need to reach control plane, DNS, etc)
   egress {
-    protocol   = "tcp"
+    protocol   = "-1"
     rule_no    = 100
     action     = "allow"
     cidr_block = "0.0.0.0/0"
-    from_port  = 443
-    to_port    = 443
-  }
-
-  # Outbound: Allow all internal traffic (VPC CIDR)
-  egress {
-    protocol   = "-1"
-    rule_no    = 110
-    action     = "allow"
-    cidr_block = var.vpc_cidr
     from_port  = 0
     to_port    = 0
   }
