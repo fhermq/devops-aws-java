@@ -72,6 +72,11 @@ resource "aws_eks_node_group" "main" {
 
   instance_types = var.node_instance_types
 
+  # Use the EKS cluster security group for nodes
+  vpc_config {
+    security_groups = [aws_eks_cluster.main.vpc_config[0].cluster_security_group_id]
+  }
+
   tags = {
     Name        = "${var.eks_cluster_name}-node-group"
     Environment = "production"

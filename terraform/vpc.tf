@@ -49,7 +49,7 @@ resource "aws_subnet" "private" {
   }
 }
 
-# Public Route Table (local only - no internet route)
+# Public Route Table (local only)
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
 
@@ -66,7 +66,7 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-# Private Route Table (local only - no internet access)
+# Private Route Table (local only)
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
 
@@ -81,124 +81,6 @@ resource "aws_route_table_association" "private" {
   count          = 2
   subnet_id      = aws_subnet.private[count.index].id
   route_table_id = aws_route_table.private.id
-}
-
-# Public Subnet Network ACL (restrict to your IP on port 80)
-resource "aws_network_acl" "public" {
-  vpc_id     = aws_vpc.main.id
-  subnet_ids = aws_subnet.public[*].id
-
-  # Inbound: Allow HTTP from your IP
-  ingress {
-    protocol   = "tcp"
-    rule_no    = 100
-    action     = "allow"
-    cidr_block = "${var.allowed_ip}/32"
-    from_port  = 80
-    to_port    = 80
-  }
-
-  # Inbound: Allow ephemeral ports from private subnets (return traffic)
-  ingress {
-    protocol   = "tcp"
-    rule_no    = 110
-    action     = "allow"
-    cidr_block = aws_subnet.private[0].cidr_block
-    from_port  = 1024
-    to_port    = 65535
-  }
-
-  ingress {
-    protocol   = "tcp"
-    rule_no    = 120
-    action     = "allow"
-    cidr_block = aws_subnet.private[1].cidr_block
-    from_port  = 1024
-    to_port    = 65535
-  }
-
-  # Outbound: Allow ephemeral ports to private subnets
-  egress {
-    protocol   = "tcp"
-    rule_no    = 100
-    action     = "allow"
-    cidr_block = aws_subnet.private[0].cidr_block
-    from_port  = 1024
-    to_port    = 65535
-  }
-
-  egress {
-    protocol   = "tcp"
-    rule_no    = 110
-    action     = "allow"
-    cidr_block = aws_subnet.private[1].cidr_block
-    from_port  = 1024
-    to_port    = 65535
-  }
-
-  tags = {
-    Name      = "${var.eks_cluster_name}-public-nacl"
-    ManagedBy = "Terraform"
-  }
-}
-
-# Private Subnet Network ACL (allow internal traffic + control plane communication)
-resource "aws_network_acl" "private" {
-  vpc_id     = aws_vpc.main.id
-  subnet_ids = aws_subnet.private[*].id
-
-  # Inbound: Allow all from public subnets (LoadBalancer traffic)
-  ingress {
-    protocol   = "-1"
-    rule_no    = 100
-    action     = "allow"
-    cidr_block = aws_subnet.public[0].cidr_block
-    from_port  = 0
-    to_port    = 0
-  }
-
-  ingress {
-    protocol   = "-1"
-    rule_no    = 110
-    action     = "allow"
-    cidr_block = aws_subnet.public[1].cidr_block
-    from_port  = 0
-    to_port    = 0
-  }
-
-  # Inbound: Allow all from private subnets (pod-to-pod communication)
-  ingress {
-    protocol   = "-1"
-    rule_no    = 120
-    action     = "allow"
-    cidr_block = aws_subnet.private[0].cidr_block
-    from_port  = 0
-    to_port    = 0
-  }
-
-  ingress {
-    protocol   = "-1"
-    rule_no    = 130
-    action     = "allow"
-    cidr_block = aws_subnet.private[1].cidr_block
-    from_port  = 0
-    to_port    = 0
-  }
-
-  # Outbound: Allow all traffic (nodes need to reach control plane, DNS, etc)
-  egress {
-    protocol   = "-1"
-    rule_no    = 100
-    action     = "allow"
-    cidr_block = "0.0.0.0/0"
-    from_port  = 0
-    to_port    = 0
-  }
-
-  tags = {
-    Name      = "${var.eks_cluster_name}-private-nacl"
-    ManagedBy = "Terraform"
-  }
 }
 
 # Data source for availability zones

@@ -72,9 +72,3 @@ variable "node_max_size" {
   type        = number
   default     = 4
 }
-
-variable "allowed_ip" {
-  description = "Your IP address for LoadBalancer access (e.g., 203.0.113.42). Default allows all. Update ACL manually after deployment."
-  type        = string
-  default     = "0.0.0.0"
-}
