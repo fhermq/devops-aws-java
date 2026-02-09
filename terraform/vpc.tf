@@ -185,10 +185,20 @@ resource "aws_network_acl" "private" {
     to_port    = 0
   }
 
-  # Outbound: Allow all internal traffic
+  # Outbound: Allow HTTPS to control plane (outside VPC)
+  egress {
+    protocol   = "tcp"
+    rule_no    = 100
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 443
+    to_port    = 443
+  }
+
+  # Outbound: Allow all internal traffic (VPC CIDR)
   egress {
     protocol   = "-1"
-    rule_no    = 100
+    rule_no    = 110
     action     = "allow"
     cidr_block = var.vpc_cidr
     from_port  = 0
