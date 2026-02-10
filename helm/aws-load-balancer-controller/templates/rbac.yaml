@@ -8,7 +8,6 @@ metadata:
 rules:
   - apiGroups:
       - ""
-      - extensions
     resources:
       - configmaps
       - endpoints
@@ -26,7 +25,6 @@ rules:
       - patch
   - apiGroups:
       - ""
-      - extensions
     resources:
       - nodes
       - pods
@@ -67,17 +65,9 @@ rules:
       - create
       - patch
   - apiGroups:
-      - elbv2.k8s.aws
+      - extensions
     resources:
-      - targetgroupbindings
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ""
-    resources:
-      - namespaces
+      - ingresses
     verbs:
       - get
       - list
