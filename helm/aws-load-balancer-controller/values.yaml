@@ -8,8 +8,7 @@ image:
 serviceAccount:
   create: true
   name: aws-load-balancer-controller
-  annotations:
-    eks.amazonaws.com/role-arn: ""  # Set via --set during helm install
+  annotations: {}
 
 rbac:
   create: true
@@ -42,3 +41,6 @@ affinity:
 enableShield: false
 enableWaf: false
 enableWafv2: false
+
+clusterName: devops-aws-java-cluster
+awsRegion: us-east-1
