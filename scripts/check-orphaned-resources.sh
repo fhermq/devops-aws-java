@@ -88,17 +88,17 @@ else
 fi
 echo ""
 
-# Check Kubernetes-managed LoadBalancers (Classic LB)
+# Check Kubernetes-managed LoadBalancers (NLB)
 echo "=========================================="
-echo "Kubernetes-managed LoadBalancers (Classic)"
+echo "Kubernetes-managed Network Load Balancers"
 echo "=========================================="
-CLB_COUNT=$(aws elb describe-load-balancers --region $AWS_REGION --query "LoadBalancerDescriptions | length(@)" --output text 2>/dev/null || echo "0")
+NLB_COUNT=$(aws elbv2 describe-load-balancers --region $AWS_REGION --query "LoadBalancers[?Type=='network'] | length(@)" --output text 2>/dev/null || echo "0")
 
-if [ "$CLB_COUNT" == "0" ]; then
-  echo -e "${GREEN}✓ No Kubernetes LoadBalancers found${NC}"
+if [ "$NLB_COUNT" == "0" ]; then
+  echo -e "${GREEN}✓ No Kubernetes NLBs found${NC}"
 else
-  echo -e "${GREEN}Found Kubernetes-managed LoadBalancers:${NC}"
-  aws elb describe-load-balancers --region $AWS_REGION --query "LoadBalancerDescriptions[*].[LoadBalancerName,DNSName]" --output text | while read name dns; do
+  echo -e "${GREEN}Found Kubernetes-managed NLBs:${NC}"
+  aws elbv2 describe-load-balancers --region $AWS_REGION --query "LoadBalancers[?Type=='network'].[LoadBalancerName,DNSName]" --output text | while read name dns; do
     echo "  - $name ($dns)"
   done
 fi

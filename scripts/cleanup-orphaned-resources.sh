@@ -38,7 +38,7 @@ echo "  - ECR repository: devops-aws-java"
 echo "  - IAM roles: devops-aws-java-cluster-cluster-role, devops-aws-java-cluster-node-role"
 echo "  - Associated policies"
 echo ""
-echo "Note: Kubernetes-managed LoadBalancers and Terraform-managed NLB/TG will be cleaned up automatically when the cluster is destroyed"
+echo "Note: Kubernetes-managed NLB and Terraform-managed resources will be cleaned up automatically when the cluster is destroyed"
 echo ""
 
 if ! confirm "Continue? (yes/no): "; then

@@ -49,12 +49,12 @@ else
     exit 1
 fi
 
-# Check subnets
+# Check Subnets
 echo ""
 echo "Checking Subnets..."
 SUBNET_COUNT=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" --query 'length(Subnets)' --output text 2>/dev/null || echo "0")
 if [ "$SUBNET_COUNT" == "4" ]; then
-    echo -e "${GREEN}✓ Subnets: $SUBNET_COUNT total (2 public, 2 private)${NC}"
+    echo -e "${GREEN}✓ Subnets: $SUBNET_COUNT total (2 public for nodes, 2 private for future use)${NC}"
     ((PASSED++))
 else
     echo -e "${RED}✗ Subnets: Expected 4, found $SUBNET_COUNT${NC}"
@@ -81,7 +81,7 @@ echo ""
 echo "Checking Worker Nodes..."
 NODE_COUNT=$(aws ec2 describe-instances --filters "Name=tag:eks:nodegroup-name,Values=devops-aws-java-cluster-node-group" "Name=instance-state-name,Values=running" --query 'length(Reservations[*].Instances[*])' --output text 2>/dev/null || echo "0")
 if [ "$NODE_COUNT" -ge "2" ]; then
-    echo -e "${GREEN}✓ Worker Nodes: $NODE_COUNT running${NC}"
+    echo -e "${GREEN}✓ Worker Nodes: $NODE_COUNT running (in public subnets)${NC}"
     ((PASSED++))
 elif [ "$NODE_COUNT" -gt "0" ]; then
     echo -e "${YELLOW}⚠ Worker Nodes: $NODE_COUNT running (expected 2, still initializing)${NC}"
