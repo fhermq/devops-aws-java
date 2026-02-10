@@ -49,9 +49,15 @@ resource "aws_subnet" "private" {
   }
 }
 
-# Public Route Table (local only)
+# Public Route Table (with internet route)
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
+
+  # Route to Internet Gateway
+  route {
+    cidr_block      = "0.0.0.0/0"
+    gateway_id      = aws_internet_gateway.main.id
+  }
 
   tags = {
     Name      = "${var.eks_cluster_name}-public-rt"
