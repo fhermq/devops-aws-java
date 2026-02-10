@@ -1,4 +1,3 @@
-# AWS Load Balancer Controller Helm values
 replicaCount: 2
 
 image:
@@ -10,32 +9,36 @@ serviceAccount:
   create: true
   name: aws-load-balancer-controller
   annotations:
-    eks.amazonaws.com/role-arn: ""  # Will be set via --set during install
+    eks.amazonaws.com/role-arn: ""  # Set via --set during helm install
 
-clusterName: devops-aws-java-cluster
-awsRegion: us-east-1
+rbac:
+  create: true
 
 resources:
   limits:
     cpu: 200m
-    memory: 256Mi
+    memory: 500Mi
   requests:
     cpu: 100m
-    memory: 128Mi
+    memory: 200Mi
 
 nodeSelector: {}
 
 tolerations: []
 
-affinity: {}
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - aws-load-balancer-controller
+          topologyKey: kubernetes.io/hostname
 
-# Logging
-logLevel: info
-
-# Metrics
-enableMetrics: true
-metricsPort: 8080
-
-# Webhook
-enableWebhook: true
-webhookPort: 8443
+enableShield: false
+enableWaf: false
+enableWafv2: false

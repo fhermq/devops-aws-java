@@ -323,6 +323,35 @@ jobs:
             --region ${{ env.AWS_REGION }} \
             --name devops-aws-java-cluster
 
+      - name: Install AWS Load Balancer Controller
+        run: |
+          echo "Checking if AWS Load Balancer Controller is already installed..."
+          if kubectl get deployment -n kube-system aws-load-balancer-controller &>/dev/null; then
+            echo "✓ AWS Load Balancer Controller already installed"
+          else
+            echo "Installing AWS Load Balancer Controller..."
+            
+            # Get the Load Balancer Controller role ARN from Terraform outputs
+            ROLE_ARN=$(aws iam list-roles --query "Roles[?RoleName=='devops-aws-java-cluster-load-balancer-controller-role'].Arn" --output text)
+            
+            if [ -z "$ROLE_ARN" ]; then
+              echo "✗ Load Balancer Controller role not found"
+              exit 1
+            fi
+            
+            echo "Using role: $ROLE_ARN"
+            
+            # Deploy AWS Load Balancer Controller via Helm
+            helm upgrade --install aws-load-balancer-controller helm/aws-load-balancer-controller \
+              --namespace kube-system \
+              --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$ROLE_ARN" \
+              --timeout 5m
+            
+            echo "Waiting for AWS Load Balancer Controller to be ready..."
+            kubectl rollout status deployment/aws-load-balancer-controller -n kube-system --timeout=5m
+            echo "✓ AWS Load Balancer Controller installed successfully"
+          fi
+
       - name: Deploy with Helm
         run: |
           echo "Creating ECR image pull secret..."
@@ -350,10 +379,34 @@ jobs:
           kubectl rollout status deployment/microservice --timeout=5m
           kubectl get pods -l app.kubernetes.io/name=microservice
 
+      - name: Wait for LoadBalancer to be provisioned
+        run: |
+          echo "Waiting for LoadBalancer to be provisioned..."
+          for i in {1..60}; do
+            LB_DNS=$(kubectl get svc microservice -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
+            if [ ! -z "$LB_DNS" ]; then
+              echo "✓ LoadBalancer provisioned: $LB_DNS"
+              echo "LB_DNS=$LB_DNS" >> $GITHUB_ENV
+              break
+            fi
+            echo "Waiting... ($i/60)"
+            sleep 5
+          done
+          
+          if [ -z "$LB_DNS" ]; then
+            echo "⚠ LoadBalancer not yet provisioned, checking NLB status..."
+            aws elbv2 describe-load-balancers --region ${{ env.AWS_REGION }} --query 'LoadBalancers[*].[LoadBalancerName,DNSName,State.Code]' --output table
+          fi
+
       - name: Get LoadBalancer URL
         run: |
           echo "LoadBalancer URL:"
-          aws elbv2 describe-load-balancers --region ${{ env.AWS_REGION }} --query 'LoadBalancers[?contains(LoadBalancerName, `devops-aws-java-cluster-nlb`)].DNSName' --output text
+          if [ ! -z "$LB_DNS" ]; then
+            echo "$LB_DNS"
+          else
+            echo "Checking via AWS CLI..."
+            aws elbv2 describe-load-balancers --region ${{ env.AWS_REGION }} --query 'LoadBalancers[*].DNSName' --output text
+          fi
 
       - name: Deployment summary
         run: |
@@ -361,3 +414,6 @@ jobs:
           echo "Branch: main"
           echo "Cluster: devops-aws-java-cluster"
           echo "Namespace: default"
+          if [ ! -z "$LB_DNS" ]; then
+            echo "LoadBalancer: $LB_DNS"
+          fi

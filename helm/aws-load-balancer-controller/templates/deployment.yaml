@@ -5,45 +5,18 @@ metadata:
   namespace: kube-system
   labels:
     app.kubernetes.io/name: aws-load-balancer-controller
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       app.kubernetes.io/name: aws-load-balancer-controller
-      app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
       labels:
         app.kubernetes.io/name: aws-load-balancer-controller
-        app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name }}
-      containers:
-      - name: aws-load-balancer-controller
-        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
-        args:
-          - --cluster-name={{ .Values.clusterName }}
-          - --aws-region={{ .Values.awsRegion }}
-          - --log-level={{ .Values.logLevel }}
-          - --webhook-bind-port={{ .Values.webhookPort }}
-        ports:
-        - name: metrics
-          containerPort: {{ .Values.metricsPort }}
-          protocol: TCP
-        - name: webhook
-          containerPort: {{ .Values.webhookPort }}
-          protocol: TCP
-        resources:
-          {{- toYaml .Values.resources | nindent 12 }}
-        securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          runAsNonRoot: true
-          capabilities:
-            drop:
-              - ALL
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -56,3 +29,38 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      containers:
+      - name: aws-load-balancer-controller
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args:
+          - --cluster-name=devops-aws-java-cluster
+          - --aws-region=us-east-1
+        ports:
+        - name: webhook
+          containerPort: 8443
+          protocol: TCP
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aws-load-balancer-webhook-service
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: aws-load-balancer-controller
+spec:
+  ports:
+  - port: 443
+    targetPort: 8443
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: aws-load-balancer-controller
