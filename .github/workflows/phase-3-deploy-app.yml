@@ -325,41 +325,52 @@ jobs:
 
       - name: Install AWS Load Balancer Controller
         run: |
-          echo "Checking if AWS Load Balancer Controller is already installed..."
-          if kubectl get deployment -n kube-system aws-load-balancer-controller &>/dev/null; then
-            echo "✓ AWS Load Balancer Controller already installed"
-            echo "Checking pod status..."
-            kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller || true
-            echo "Restarting controller pods to pick up new configuration..."
-            kubectl rollout restart deployment/aws-load-balancer-controller -n kube-system || true
-            sleep 15
-          else
-            echo "Installing AWS Load Balancer Controller..."
-            
-            # Get the Load Balancer Controller role ARN from Terraform outputs
-            ROLE_ARN=$(aws iam list-roles --query "Roles[?RoleName=='devops-aws-java-cluster-load-balancer-controller-role'].Arn" --output text)
-            
-            if [ -z "$ROLE_ARN" ]; then
-              echo "✗ Load Balancer Controller role not found"
-              exit 1
-            fi
-            
-            echo "Using role: $ROLE_ARN"
-            
-            # Deploy AWS Load Balancer Controller via Helm
-            helm upgrade --install aws-load-balancer-controller helm/aws-load-balancer-controller \
-              --namespace kube-system \
-              --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$ROLE_ARN" \
-              --timeout 5m
-            
-            echo "Waiting for AWS Load Balancer Controller pods to start..."
-            sleep 15
-            kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller || true
-            echo "✓ AWS Load Balancer Controller deployed"
+          echo "Fixing AWS Load Balancer Controller IRSA configuration..."
+          
+          # Delete broken deployment and service account
+          echo "Deleting broken Load Balancer Controller deployment..."
+          kubectl delete deployment aws-load-balancer-controller -n kube-system --ignore-not-found=true
+          kubectl delete serviceaccount aws-load-balancer-controller -n kube-system --ignore-not-found=true
+          sleep 10
+          
+          # Get the Load Balancer Controller role ARN
+          ROLE_ARN=$(aws iam list-roles --query "Roles[?RoleName=='devops-aws-java-cluster-load-balancer-controller-role'].Arn" --output text)
+          
+          if [ -z "$ROLE_ARN" ]; then
+            echo "✗ Load Balancer Controller role not found"
+            exit 1
           fi
-            kubectl rollout status deployment/aws-load-balancer-controller -n kube-system --timeout=5m
-            echo "✓ AWS Load Balancer Controller installed successfully"
-          fi
+          
+          echo "Using role: $ROLE_ARN"
+          
+          # Create a values override file with proper annotation
+          cat > /tmp/alb-controller-values.yaml << EOF
+          serviceAccount:
+            create: true
+            name: aws-load-balancer-controller
+            annotations:
+              eks.amazonaws.com/role-arn: $ROLE_ARN
+          EOF
+          
+          # Deploy AWS Load Balancer Controller via Helm
+          echo "Deploying AWS Load Balancer Controller..."
+          helm upgrade --install aws-load-balancer-controller helm/aws-load-balancer-controller \
+            --namespace kube-system \
+            -f /tmp/alb-controller-values.yaml \
+            --timeout 5m
+          
+          echo "Waiting for AWS Load Balancer Controller pods to start..."
+          sleep 20
+          
+          # Check pod status
+          echo "Load Balancer Controller pod status:"
+          kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller
+          
+          # Wait for rollout
+          echo "Waiting for deployment to be ready..."
+          kubectl rollout status deployment/aws-load-balancer-controller -n kube-system --timeout=5m || true
+          
+          echo "✓ AWS Load Balancer Controller deployed"
 
       - name: Deploy with Helm
         run: |
