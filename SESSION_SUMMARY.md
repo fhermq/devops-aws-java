@@ -1,26 +1,32 @@
 # Session Summary - DevOps AWS Java Pipeline
 
 **Date:** February 11, 2026  
-**Status:** Fresh Start - Phase 1 Complete, Phase 2 Ready (Workflow Fixed) ✅
+**Status:** Restarting for Local E2E Testing - Workflows Disabled, Infrastructure to be Destroyed ⏸️
 
 ## Current Status
 
 ## Current Status
 
-**AWS Infrastructure:** PHASE 1 COMPLETE ✅
-- ✅ S3 Backend: `devops-aws-java-terraform-state` (Versioning + Encryption enabled)
-- ✅ DynamoDB Locks: `terraform-locks` (ACTIVE)
-- ✅ ECR Repository: `devops-aws-java` (Image scanning + Lifecycle policy)
-- ⏳ EKS Cluster: Not yet deployed (Phase 2)
-- ⏳ VPC: Not yet deployed (Phase 2)
-- ⏳ Load Balancer: Not yet deployed (Phase 2)
+**AWS Infrastructure:** PENDING DESTRUCTION
+- ⏳ EKS cluster: ACTIVE (to be destroyed)
+- ⏳ VPC: Active (to be destroyed)
+- ⏳ Worker nodes: Running (to be destroyed)
+- ✅ S3 backend: Active (keep)
+- ✅ DynamoDB locks: Active (keep)
+- ✅ ECR repository: Active (keep)
 
-**Code & Configuration:** READY ✅
-- ✅ Phase 1 scripts: All working (setup-backend.sh, validate-created.sh)
-- ✅ Phase 2 workflow: FIXED (terraform.tfvars duplicate variable error resolved)
-- ✅ Phase 3 workflow: Ready
-- ✅ Terraform Phase 2 module: Ready
-- ✅ Helm charts: Ready (microservice, nginx-test, aws-load-balancer-controller)
+**Code & Configuration:** READY FOR LOCAL TESTING
+- ✅ Phase 1 scripts: Ready
+- ✅ Phase 2 Terraform module: Ready
+- ✅ Phase 3 Helm charts: Ready
+- ⏸️ GitHub workflows: DISABLED (renamed to .disabled)
+- ✅ All fixes applied and tested
+
+**Next Steps:**
+1. Destroy Phase 2 infrastructure via GitHub Actions
+2. Validate destruction with scripts
+3. Run E2E manually from local machine
+4. Test microservice endpoints
 
 ## Recent Fixes
 
@@ -306,3 +312,69 @@ aws ecr delete-repository --repository-name devops-aws-java --force --region us-
 ---
 
 **Status: Fresh Start ✅ | Ready for Phase 1 Setup**
+
+
+## Known Issues
+
+### Load Balancer Controller IRSA Authentication (BLOCKING)
+
+**Issue:** Load Balancer Controller pods fail to authenticate to Kubernetes API server in GitHub Actions workflows.
+
+**Symptoms:**
+- Pods in Error/CrashLoopBackOff state
+- Services remain Pending (no NLB created)
+- Error: "server has asked for the client to provide credentials"
+
+**Root Cause:** IRSA configuration appears correct but pod can't authenticate. Possible issues:
+- Projected token mounting problem
+- OIDC provider trust relationship incomplete
+- Pod environment variables not read correctly
+
+**Workaround:** Skip Load Balancer Controller in automated workflows. Services deploy but stay Pending.
+
+**Resolution:** Requires deeper investigation into Kubernetes API authentication and OIDC provider configuration.
+
+**Status:** 🔴 BLOCKING - Workflows disabled for local E2E testing
+
+
+## Local E2E Testing Plan
+
+**Objective:** Validate entire deployment pipeline works correctly when run manually from local machine.
+
+**Steps:**
+
+1. **Destroy Phase 2 Infrastructure**
+   - Trigger Phase 2 destroy workflow via GitHub Actions
+   - Validate with: `./scripts/phase-2-validate-destroyed.sh`
+
+2. **Disable GitHub Workflows**
+   - Rename workflow files to .disabled
+   - Commit and push
+
+3. **Manual Phase 2 Deployment**
+   ```bash
+   cd terraform/phase-2-eks
+   terraform init
+   terraform plan
+   terraform apply
+   ./scripts/phase-2-validate-created.sh
+   ```
+
+4. **Manual Phase 3 Deployment**
+   ```bash
+   aws eks update-kubeconfig --region us-east-1 --name devops-aws-java-cluster
+   helm install microservice helm/microservice -f helm/microservice/values-prod.yaml
+   kubectl get svc microservice
+   ```
+
+5. **Test Microservice**
+   ```bash
+   kubectl port-forward svc/microservice 8080:80
+   curl http://localhost:8080/health
+   curl http://localhost:8080/ready
+   curl http://localhost:8080/api/hello
+   ```
+
+**Expected Outcome:** All services deploy successfully and respond to health checks.
+
+**Status:** 🔵 READY TO START
