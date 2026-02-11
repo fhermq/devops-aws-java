@@ -204,7 +204,7 @@ jobs:
           # Deploy AWS Load Balancer Controller via Helm
           helm upgrade --install aws-load-balancer-controller helm/aws-load-balancer-controller \
             --namespace kube-system \
-            --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$ROLE_ARN" \
+            --set 'serviceAccount.annotations.eks\.amazonaws\.com/role-arn'="$ROLE_ARN" \
             --timeout 5m
           
           echo "Waiting for AWS Load Balancer Controller pods to start..."

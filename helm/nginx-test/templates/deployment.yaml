@@ -4,7 +4,7 @@ metadata:
   name: nginx-test
   labels:
     app.kubernetes.io/name: nginx-test
-    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    app.kubernetes.io/version: "{{ .Chart.AppVersion }}"
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
