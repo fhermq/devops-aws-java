@@ -39,11 +39,23 @@ jobs:
 
       - name: Create terraform.tfvars
         run: |
-          cp terraform/phase-2-eks/terraform.tfvars.example terraform/phase-2-eks/terraform.tfvars
-          cat >> terraform/phase-2-eks/terraform.tfvars << 'EOF'
-          
-          aws_account_id = "${{ secrets.AWS_ACCOUNT_ID }}"
+          cat > terraform/phase-2-eks/terraform.tfvars << 'EOF'
+          # Phase 2: EKS Cluster Configuration
           aws_region     = "${{ secrets.AWS_REGION }}"
+          aws_account_id = "${{ secrets.AWS_ACCOUNT_ID }}"
+          
+          # EKS Configuration
+          eks_cluster_name   = "devops-aws-java-cluster"
+          kubernetes_version = "1.30"
+          
+          # VPC Configuration
+          vpc_cidr = "10.0.0.0/26"
+          
+          # Node Configuration
+          node_instance_types = ["t3.medium"]
+          node_desired_size   = 2
+          node_min_size       = 1
+          node_max_size       = 4
           EOF
           
           echo "✓ terraform.tfvars created"
@@ -105,11 +117,23 @@ jobs:
 
       - name: Create terraform.tfvars
         run: |
-          cp terraform/phase-2-eks/terraform.tfvars.example terraform/phase-2-eks/terraform.tfvars
-          cat >> terraform/phase-2-eks/terraform.tfvars << 'EOF'
-          
-          aws_account_id = "${{ secrets.AWS_ACCOUNT_ID }}"
+          cat > terraform/phase-2-eks/terraform.tfvars << 'EOF'
+          # Phase 2: EKS Cluster Configuration
           aws_region     = "${{ secrets.AWS_REGION }}"
+          aws_account_id = "${{ secrets.AWS_ACCOUNT_ID }}"
+          
+          # EKS Configuration
+          eks_cluster_name   = "devops-aws-java-cluster"
+          kubernetes_version = "1.30"
+          
+          # VPC Configuration
+          vpc_cidr = "10.0.0.0/26"
+          
+          # Node Configuration
+          node_instance_types = ["t3.medium"]
+          node_desired_size   = 2
+          node_min_size       = 1
+          node_max_size       = 4
           EOF
 
       - name: Terraform Init
@@ -311,11 +335,23 @@ jobs:
 
       - name: Create terraform.tfvars
         run: |
-          cp terraform/phase-2-eks/terraform.tfvars.example terraform/phase-2-eks/terraform.tfvars
-          cat >> terraform/phase-2-eks/terraform.tfvars << 'EOF'
-          
-          aws_account_id = "${{ secrets.AWS_ACCOUNT_ID }}"
+          cat > terraform/phase-2-eks/terraform.tfvars << 'EOF'
+          # Phase 2: EKS Cluster Configuration
           aws_region     = "${{ secrets.AWS_REGION }}"
+          aws_account_id = "${{ secrets.AWS_ACCOUNT_ID }}"
+          
+          # EKS Configuration
+          eks_cluster_name   = "devops-aws-java-cluster"
+          kubernetes_version = "1.30"
+          
+          # VPC Configuration
+          vpc_cidr = "10.0.0.0/26"
+          
+          # Node Configuration
+          node_instance_types = ["t3.medium"]
+          node_desired_size   = 2
+          node_min_size       = 1
+          node_max_size       = 4
           EOF
 
       - name: Terraform Init
