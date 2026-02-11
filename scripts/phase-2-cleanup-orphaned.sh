@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# Cleanup orphaned AWS resources
+# Phase 2: EKS Cluster - Cleanup Orphaned Resources
 # Safely deletes resources that are out of sync with Terraform state
+# Usage: ./scripts/phase-2-cleanup-orphaned.sh
 
 set -e
 

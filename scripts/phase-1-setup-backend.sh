@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# Setup S3 backend for Terraform state management
-# Creates S3 bucket and DynamoDB table for state locking
+# Phase 1: State Infrastructure - Setup S3 Backend
+# Creates S3 bucket and DynamoDB table for Terraform state management and locking
+# Usage: ./scripts/phase-1-setup-backend.sh
 
 set -e
 
@@ -109,7 +110,50 @@ else
 fi
 echo ""
 
-# Step 6: Summary
+# Step 6: Create ECR Repository
+echo "=========================================="
+echo "Step 6: Creating ECR Repository"
+echo "=========================================="
+
+ECR_REPO_NAME="devops-aws-java"
+
+if aws ecr describe-repositories --repository-names "$ECR_REPO_NAME" --region $REGION 2>/dev/null > /dev/null; then
+    echo -e "${YELLOW}⚠ ECR Repository already exists: $ECR_REPO_NAME${NC}"
+else
+    echo "Creating ECR repository: $ECR_REPO_NAME"
+    aws ecr create-repository \
+        --repository-name "$ECR_REPO_NAME" \
+        --region $REGION \
+        --image-scanning-configuration scanOnPush=true \
+        --encryption-configuration encryptionType=AES256
+    echo -e "${GREEN}✓ ECR repository created${NC}"
+fi
+
+# Set lifecycle policy to keep last 5 images
+echo "Setting ECR lifecycle policy..."
+aws ecr put-lifecycle-policy \
+    --repository-name "$ECR_REPO_NAME" \
+    --lifecycle-policy-text '{
+        "rules": [
+            {
+                "rulePriority": 1,
+                "description": "Keep last 5 images",
+                "selection": {
+                    "tagStatus": "any",
+                    "countType": "imageCountMoreThan",
+                    "countNumber": 5
+                },
+                "action": {
+                    "type": "expire"
+                }
+            }
+        ]
+    }' \
+    --region $REGION
+echo -e "${GREEN}✓ Lifecycle policy configured${NC}"
+echo ""
+
+# Step 7: Summary
 echo "=========================================="
 echo "Backend Setup Complete!"
 echo "=========================================="
@@ -126,9 +170,16 @@ echo "  Name: $TABLE_NAME"
 echo "  Region: $REGION"
 echo "  Purpose: State locking"
 echo ""
+echo "ECR Repository Configuration:"
+echo "  Name: $ECR_REPO_NAME"
+echo "  Region: $REGION"
+echo "  Image Scanning: Enabled"
+echo "  Encryption: AES256"
+echo "  Lifecycle Policy: Keep last 5 images"
+echo ""
 echo "Next steps:"
-echo "  1. Run: terraform -chdir=terraform init"
-echo "  2. Confirm migration to S3 backend"
-echo "  3. Verify state file in S3: aws s3 ls s3://$BUCKET_NAME"
+echo "  1. Run: ./scripts/phase-1-validate-created.sh"
+echo "  2. Verify all Phase 1 resources created"
+echo "  3. Push to main to trigger Phase 2 deployment"
 echo ""
 echo "=========================================="

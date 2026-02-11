@@ -37,6 +37,7 @@ spec:
           - --cluster-name={{ .Values.clusterName }}
           - --aws-region={{ .Values.awsRegion }}
           - --log-level=info
+          - --webhook-bind-port=8443
         ports:
         - name: webhook
           containerPort: 8443
@@ -44,15 +45,34 @@ spec:
         - name: metrics
           containerPort: 8081
           protocol: TCP
+        env:
+        - name: AWS_ROLE_ARN
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.annotations['eks.amazonaws.com/role-arn']
+        - name: AWS_WEB_IDENTITY_TOKEN_FILE
+          value: /var/run/secrets/eks.amazonaws.com/serviceaccount/token
+        volumeMounts:
+        - name: aws-iam-token
+          mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
+          readOnly: true
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: false
-          runAsNonRoot: true
+          runAsNonRoot: false
           capabilities:
             drop:
               - ALL
+      volumes:
+      - name: aws-iam-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: sts.amazonaws.com
+              expirationSeconds: 86400
+              path: token
 ---
 apiVersion: v1
 kind: Service

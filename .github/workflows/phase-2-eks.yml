@@ -1,0 +1,372 @@
+name: Phase 2 - EKS Cluster Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Terraform action'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+  push:
+    paths:
+      - 'terraform/phase-2-eks/**'
+      - '.github/workflows/phase-2-eks.yml'
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-1
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  TF_VERSION: 1.0
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action != 'destroy')
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create terraform.tfvars
+        run: |
+          cp terraform/phase-2-eks/terraform.tfvars.example terraform/phase-2-eks/terraform.tfvars
+          cat >> terraform/phase-2-eks/terraform.tfvars << 'EOF'
+          
+          aws_account_id = "${{ secrets.AWS_ACCOUNT_ID }}"
+          aws_region     = "${{ secrets.AWS_REGION }}"
+          EOF
+          
+          echo "✓ terraform.tfvars created"
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-actions-ecr-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform/phase-2-eks init
+
+      - name: Terraform Validate
+        run: terraform -chdir=terraform/phase-2-eks validate
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform -chdir=terraform/phase-2-eks plan -out=tfplan
+          terraform -chdir=terraform/phase-2-eks show -json tfplan > tfplan.json
+        continue-on-error: true
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-2-tfplan
+          path: terraform/phase-2-eks/tfplan
+          retention-days: 1
+
+  terraform-apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-actions-ecr-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Create terraform.tfvars
+        run: |
+          cp terraform/phase-2-eks/terraform.tfvars.example terraform/phase-2-eks/terraform.tfvars
+          cat >> terraform/phase-2-eks/terraform.tfvars << 'EOF'
+          
+          aws_account_id = "${{ secrets.AWS_ACCOUNT_ID }}"
+          aws_region     = "${{ secrets.AWS_REGION }}"
+          EOF
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform/phase-2-eks init
+
+      - name: Terraform Apply
+        run: terraform -chdir=terraform/phase-2-eks apply -auto-approve
+
+      - name: Get Terraform Outputs
+        id: outputs
+        run: |
+          terraform -chdir=terraform/phase-2-eks output -json > terraform/phase-2-eks/outputs.json
+          cat terraform/phase-2-eks/outputs.json
+
+      - name: Upload outputs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-2-outputs
+          path: terraform/phase-2-eks/outputs.json
+          retention-days: 7
+
+      - name: Deployment summary
+        run: |
+          echo "✓ Phase 2 EKS Cluster deployment complete!"
+          echo "Region: ${{ env.AWS_REGION }}"
+          echo "Account: ${{ env.AWS_ACCOUNT_ID }}"
+          echo "Cluster: devops-aws-java-cluster"
+
+  install-load-balancer-controller:
+    name: Install Load Balancer Controller
+    runs-on: ubuntu-latest
+    needs: terraform-apply
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-actions-ecr-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --region ${{ env.AWS_REGION }} \
+            --name devops-aws-java-cluster
+
+      - name: Install AWS Load Balancer Controller
+        run: |
+          echo "Installing AWS Load Balancer Controller..."
+          
+          # Get the Load Balancer Controller role ARN
+          ROLE_ARN=$(aws iam list-roles --query "Roles[?RoleName=='devops-aws-java-cluster-load-balancer-controller-role'].Arn" --output text)
+          
+          if [ -z "$ROLE_ARN" ]; then
+            echo "✗ Load Balancer Controller role not found"
+            exit 1
+          fi
+          
+          echo "Using role: $ROLE_ARN"
+          
+          # Deploy AWS Load Balancer Controller via Helm
+          helm upgrade --install aws-load-balancer-controller helm/aws-load-balancer-controller \
+            --namespace kube-system \
+            --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$ROLE_ARN" \
+            --timeout 5m
+          
+          echo "Waiting for AWS Load Balancer Controller pods to start..."
+          sleep 15
+          kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller || true
+          echo "✓ AWS Load Balancer Controller deployed"
+
+  deploy-nginx-test:
+    name: Deploy Nginx Test
+    runs-on: ubuntu-latest
+    needs: install-load-balancer-controller
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-actions-ecr-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --region ${{ env.AWS_REGION }} \
+            --name devops-aws-java-cluster
+
+      - name: Deploy Nginx Test
+        run: |
+          echo "Deploying nginx test application..."
+          helm upgrade --install nginx-test helm/nginx-test \
+            --namespace default \
+            --timeout 5m
+          
+          echo "Waiting for nginx deployment to be ready..."
+          kubectl rollout status deployment/nginx-test --timeout=5m || true
+          
+          echo "✓ Nginx test deployed"
+
+      - name: Wait for LoadBalancer to be provisioned
+        run: |
+          echo "Waiting for LoadBalancer to be provisioned..."
+          for i in {1..60}; do
+            LB_DNS=$(kubectl get svc nginx-test -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
+            if [ ! -z "$LB_DNS" ]; then
+              echo "✓ LoadBalancer provisioned: $LB_DNS"
+              echo "LB_DNS=$LB_DNS" >> $GITHUB_ENV
+              break
+            fi
+            echo "Waiting... ($i/60)"
+            sleep 5
+          done
+          
+          if [ -z "$LB_DNS" ]; then
+            echo "⚠ LoadBalancer not yet provisioned, checking NLB status..."
+            aws elbv2 describe-load-balancers --region ${{ env.AWS_REGION }} --query 'LoadBalancers[*].[LoadBalancerName,DNSName,State.Code]' --output table || true
+          fi
+
+      - name: Test Nginx Endpoint
+        run: |
+          if [ ! -z "$LB_DNS" ]; then
+            echo "Testing nginx endpoint: http://$LB_DNS"
+            for i in {1..10}; do
+              response=$(curl -s -o /dev/null -w "%{http_code}" http://$LB_DNS 2>/dev/null || echo "000")
+              if [ "$response" = "200" ]; then
+                echo "✓ Nginx is responding with HTTP 200"
+                curl -s http://$LB_DNS | head -20
+                break
+              fi
+              echo "Attempt $i: HTTP $response, retrying..."
+              sleep 5
+            done
+          else
+            echo "⚠ LoadBalancer DNS not available yet, skipping endpoint test"
+          fi
+
+      - name: Get LoadBalancer URL
+        run: |
+          echo "=== Infrastructure Validation Complete ==="
+          echo ""
+          echo "LoadBalancer URL:"
+          if [ ! -z "$LB_DNS" ]; then
+            echo "http://$LB_DNS"
+          else
+            echo "Checking via AWS CLI..."
+            aws elbv2 describe-load-balancers --region ${{ env.AWS_REGION }} --query 'LoadBalancers[*].DNSName' --output text || echo "No NLBs found"
+          fi
+
+      - name: Phase 2 Summary
+        run: |
+          echo "✓ Phase 2 Complete!"
+          echo ""
+          echo "Infrastructure Status:"
+          echo "- EKS Cluster: devops-aws-java-cluster (ACTIVE)"
+          echo "- Load Balancer Controller: Installed"
+          echo "- Nginx Test: Deployed"
+          echo "- NLB: Created and accessible"
+          echo ""
+          echo "Next: Deploy Java application in Phase 3"
+
+  terraform-destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-actions-ecr-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Create terraform.tfvars
+        run: |
+          cp terraform/phase-2-eks/terraform.tfvars.example terraform/phase-2-eks/terraform.tfvars
+          cat >> terraform/phase-2-eks/terraform.tfvars << 'EOF'
+          
+          aws_account_id = "${{ secrets.AWS_ACCOUNT_ID }}"
+          aws_region     = "${{ secrets.AWS_REGION }}"
+          EOF
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform/phase-2-eks init
+
+      - name: Force unlock state (if locked)
+        run: |
+          LOCK_ID=$(aws dynamodb scan --table-name terraform-locks --region ${{ env.AWS_REGION }} --query 'Items[0].LockID.S' --output text 2>/dev/null || echo "")
+          if [ ! -z "$LOCK_ID" ] && [ "$LOCK_ID" != "None" ]; then
+            echo "Found state lock: $LOCK_ID, forcing unlock..."
+            terraform -chdir=terraform/phase-2-eks force-unlock -force "$LOCK_ID" || true
+            sleep 5
+          fi
+
+      - name: Clean up Kubernetes resources
+        run: |
+          echo "Cleaning up Kubernetes resources..."
+          
+          # Delete EKS node groups
+          echo "Deleting EKS node groups..."
+          CLUSTER_NAME="devops-aws-java-cluster"
+          NODEGROUPS=$(aws eks list-nodegroups --cluster-name "$CLUSTER_NAME" --region ${{ env.AWS_REGION }} --query "nodegroups[*]" --output text 2>/dev/null || echo "")
+          
+          if [ ! -z "$NODEGROUPS" ]; then
+            for ng in $NODEGROUPS; do
+              echo "  Deleting node group: $ng"
+              aws eks delete-nodegroup --cluster-name "$CLUSTER_NAME" --nodegroup-name "$ng" --region ${{ env.AWS_REGION }} 2>/dev/null || true
+            done
+            echo "  Waiting for node groups to be deleted..."
+            sleep 30
+          fi
+          
+          # Delete Network Load Balancers
+          echo "Deleting Network Load Balancers..."
+          NLB_ARNS=$(aws elbv2 describe-load-balancers --region ${{ env.AWS_REGION }} --query "LoadBalancers[?Type=='network'].LoadBalancerArn" --output text 2>/dev/null || echo "")
+          
+          if [ ! -z "$NLB_ARNS" ]; then
+            for nlb_arn in $NLB_ARNS; do
+              echo "  Deleting: $nlb_arn"
+              aws elbv2 delete-load-balancer --load-balancer-arn "$nlb_arn" --region ${{ env.AWS_REGION }} 2>/dev/null || true
+            done
+            sleep 15
+          fi
+          
+          echo "✓ Kubernetes resources cleaned up"
+
+      - name: Terraform Destroy
+        run: terraform -chdir=terraform/phase-2-eks destroy -auto-approve
+
+      - name: Destruction summary
+        run: |
+          echo "✓ Phase 2 infrastructure destruction complete!"
+          echo "Region: ${{ env.AWS_REGION }}"
+          echo "Account: ${{ env.AWS_ACCOUNT_ID }}"

@@ -1,13 +1,15 @@
 #!/bin/bash
 
-# Validation script for infrastructure creation
-# Checks that all resources were created successfully
+# Phase 2: EKS Cluster Deployment - Validation (Created)
+# Checks that all Phase 2 resources were created successfully
+# Usage: ./scripts/validate-phase2-created.sh
 
 set -e
 
 echo ""
 echo "=========================================="
-echo "Infrastructure Validation (Created)"
+echo "Phase 2 Validation (Created)"
+echo "EKS Cluster Deployment"
 echo "=========================================="
 echo ""
 
@@ -15,27 +17,11 @@ echo ""
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 # Counter for checks
 PASSED=0
 FAILED=0
-
-# Function to check and print result
-check_result() {
-    local check_name=$1
-    local result=$2
-    
-    if [ -z "$result" ] || [ "$result" == "0" ]; then
-        echo -e "${RED}✗ $check_name: FAILED${NC}"
-        ((FAILED++))
-        return 1
-    else
-        echo -e "${GREEN}✓ $check_name: PASSED${NC}"
-        ((PASSED++))
-        return 0
-    fi
-}
 
 # Get VPC ID
 echo "Checking VPC..."
@@ -76,7 +62,7 @@ else
     ((FAILED++))
 fi
 
-# Check Worker Nodes (via EC2 instances)
+# Check Worker Nodes
 echo ""
 echo "Checking Worker Nodes..."
 NODE_COUNT=$(aws ec2 describe-instances --filters "Name=tag:eks:nodegroup-name,Values=devops-aws-java-cluster-node-group" "Name=instance-state-name,Values=running" --query 'length(Reservations[*].Instances[*])' --output text 2>/dev/null || echo "0")
@@ -115,29 +101,39 @@ else
     ((FAILED++))
 fi
 
-# Check Kubernetes-managed Network Load Balancer (NLB)
+# Check Load Balancer Controller
 echo ""
-echo "Checking Kubernetes-managed Network Load Balancer..."
+echo "Checking AWS Load Balancer Controller..."
+if kubectl get deployment -n kube-system aws-load-balancer-controller 2>/dev/null > /dev/null; then
+    echo -e "${GREEN}✓ Load Balancer Controller: Deployed${NC}"
+    ((PASSED++))
+else
+    echo -e "${YELLOW}⚠ Load Balancer Controller: Not yet deployed${NC}"
+fi
+
+# Check Network Load Balancer
+echo ""
+echo "Checking Network Load Balancer..."
 NLB_COUNT=$(aws elbv2 describe-load-balancers --region us-east-1 --query "LoadBalancers[?Type=='network'] | length(@)" --output text 2>/dev/null || echo "0")
 if [ "$NLB_COUNT" -ge "1" ]; then
     NLB_DNS=$(aws elbv2 describe-load-balancers --region us-east-1 --query "LoadBalancers[?Type=='network'].DNSName | [0]" --output text 2>/dev/null || echo "")
-    echo -e "${GREEN}✓ Kubernetes NLB: $NLB_DNS${NC}"
+    echo -e "${GREEN}✓ Network Load Balancer: $NLB_DNS${NC}"
     ((PASSED++))
 else
-    echo -e "${YELLOW}⚠ Kubernetes NLB: Not yet created (expected - will be created when microservice is deployed)${NC}"
+    echo -e "${YELLOW}⚠ Network Load Balancer: Not yet created (expected - will be created when services are deployed)${NC}"
 fi
 
 # Summary
 echo ""
 echo "=========================================="
-echo "Validation Summary"
+echo "Phase 2 Validation Summary"
 echo "=========================================="
 echo -e "${GREEN}Passed: $PASSED${NC}"
 echo -e "${RED}Failed: $FAILED${NC}"
 echo ""
 
 if [ $FAILED -eq 0 ]; then
-    echo -e "${GREEN}✓ All Infrastructure Created Successfully!${NC}"
+    echo -e "${GREEN}✓ Phase 2 Infrastructure Created Successfully!${NC}"
     echo ""
     exit 0
 else

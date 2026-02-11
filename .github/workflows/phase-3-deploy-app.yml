@@ -329,7 +329,10 @@ jobs:
           if kubectl get deployment -n kube-system aws-load-balancer-controller &>/dev/null; then
             echo "✓ AWS Load Balancer Controller already installed"
             echo "Checking pod status..."
-            kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller
+            kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller || true
+            echo "Restarting controller pods to pick up new configuration..."
+            kubectl rollout restart deployment/aws-load-balancer-controller -n kube-system || true
+            sleep 15
           else
             echo "Installing AWS Load Balancer Controller..."
             
@@ -350,8 +353,8 @@ jobs:
               --timeout 5m
             
             echo "Waiting for AWS Load Balancer Controller pods to start..."
-            sleep 10
-            kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller
+            sleep 15
+            kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller || true
             echo "✓ AWS Load Balancer Controller deployed"
           fi
             kubectl rollout status deployment/aws-load-balancer-controller -n kube-system --timeout=5m

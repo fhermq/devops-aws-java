@@ -1,13 +1,15 @@
 #!/bin/bash
 
-# Validation script for infrastructure destruction
-# Checks that all resources were deleted successfully (no orphaned resources)
+# Phase 2: EKS Cluster Deployment - Validation (Destroyed)
+# Checks that all Phase 2 resources were deleted successfully
+# Usage: ./scripts/validate-phase2-destroyed.sh
 
 set -e
 
 echo ""
 echo "=========================================="
-echo "Infrastructure Validation (Destroyed)"
+echo "Phase 2 Validation (Destroyed)"
+echo "EKS Cluster Cleanup"
 echo "=========================================="
 echo ""
 
@@ -15,27 +17,11 @@ echo ""
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 # Counter for checks
 PASSED=0
 FAILED=0
-
-# Function to check and print result
-check_deleted() {
-    local check_name=$1
-    local result=$2
-    
-    if [ -z "$result" ] || [ "$result" == "0" ] || [ "$result" == "None" ]; then
-        echo -e "${GREEN}✓ $check_name: Deleted${NC}"
-        ((PASSED++))
-        return 0
-    else
-        echo -e "${RED}✗ $check_name: Still exists ($result)${NC}"
-        ((FAILED++))
-        return 1
-    fi
-}
 
 # Check VPC
 echo "Checking VPC..."
@@ -108,29 +94,29 @@ else
     ((FAILED++))
 fi
 
-# Check Kubernetes-managed Network Load Balancer (NLB)
+# Check Network Load Balancer
 echo ""
-echo "Checking Kubernetes-managed Network Load Balancer..."
+echo "Checking Network Load Balancer..."
 NLB_COUNT=$(aws elbv2 describe-load-balancers --region us-east-1 --query "LoadBalancers[?Type=='network'] | length(@)" --output text 2>/dev/null || echo "0")
 if [ "$NLB_COUNT" == "0" ]; then
-    echo -e "${GREEN}✓ Kubernetes NLB: Deleted${NC}"
+    echo -e "${GREEN}✓ Network Load Balancer: Deleted${NC}"
     ((PASSED++))
 else
-    echo -e "${YELLOW}⚠ Kubernetes NLB: $NLB_COUNT still exist (will be deleted with cluster)${NC}"
+    echo -e "${YELLOW}⚠ Network Load Balancer: $NLB_COUNT still exist (will be deleted with cluster)${NC}"
     ((PASSED++))
 fi
 
 # Summary
 echo ""
 echo "=========================================="
-echo "Validation Summary"
+echo "Phase 2 Validation Summary"
 echo "=========================================="
 echo -e "${GREEN}Passed: $PASSED${NC}"
 echo -e "${RED}Failed: $FAILED${NC}"
 echo ""
 
 if [ $FAILED -eq 0 ]; then
-    echo -e "${GREEN}✓ All Infrastructure Cleaned Up Successfully!${NC}"
+    echo -e "${GREEN}✓ Phase 2 Infrastructure Cleaned Up Successfully!${NC}"
     echo -e "${GREEN}✓ No Orphaned or Zombie Resources Found!${NC}"
     echo ""
     exit 0

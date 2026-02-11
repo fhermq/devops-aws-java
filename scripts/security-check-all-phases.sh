@@ -1,7 +1,9 @@
 #!/bin/bash
 
-# Security Check Script
+# Security Check - All Phases
 # Verifies no sensitive information is about to be committed
+# Applies to all phases (Phase 1, 2, 3)
+# Usage: ./scripts/security-check-all-phases.sh
 
 set -e
 

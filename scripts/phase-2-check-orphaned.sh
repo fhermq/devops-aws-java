@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# Check for orphaned AWS resources not managed by Terraform
-# This script identifies resources created outside of Terraform state
+# Phase 2: EKS Cluster - Check for Orphaned Resources
+# Identifies AWS resources created outside of Terraform state
+# Usage: ./scripts/phase-2-check-orphaned.sh
 
 set -e
 

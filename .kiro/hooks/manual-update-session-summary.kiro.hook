@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "name": "Manual Session Summary Update",
+  "description": "Manually triggered hook to update SESSION_SUMMARY.md with current progress, task status, and AWS resource state. Invoke with 'Kiro update the session summary' or similar command.",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Review current progress and update SESSION_SUMMARY.md with: 1) Current status of all tasks (Phase 1-N), 2) Any new files created/modified since last update, 3) Current AWS resource state (EKS, VPC, LoadBalancer, etc), 4) Next immediate steps. Keep updates concise and factual. Only update sections that have changed., 5) Udte the exising documentacion(MD files) if is neeed according the guidence"
+  },
+  "workspaceFolderName": "03-devops-pipeline",
+  "shortName": "manual-update-session-summary"
+}
