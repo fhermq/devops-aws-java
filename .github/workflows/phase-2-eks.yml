@@ -49,7 +49,7 @@ jobs:
           kubernetes_version = "1.30"
           
           # VPC Configuration
-          vpc_cidr = "10.0.0.0/26"
+          vpc_cidr = "10.0.0.0/16"
           
           # Node Configuration
           node_instance_types = ["t3.small"]
@@ -127,7 +127,7 @@ jobs:
           kubernetes_version = "1.30"
           
           # VPC Configuration
-          vpc_cidr = "10.0.0.0/26"
+          vpc_cidr = "10.0.0.0/16"
           
           # Node Configuration
           node_instance_types = ["t3.small"]
@@ -142,7 +142,17 @@ jobs:
       - name: Terraform Apply
         run: terraform -chdir=terraform/phase-2-eks apply -auto-approve
 
-      - name: Get Terraform Outputs
+      - name: Get Terraform Outputs       # Node Configuration
+          node_instance_types = ["t3.small"]
+          node_desired_size   = 2
+          node_min_size       = 1
+          node_max_size       = 4
+          EOF
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform/phase-2-eks init
+
+      - name: Force unlock state (if locked)
         id: outputs
         run: |
           terraform -chdir=terraform/phase-2-eks output -json > terraform/phase-2-eks/outputs.json
@@ -352,10 +362,10 @@ jobs:
           kubernetes_version = "1.30"
           
           # VPC Configuration
-          vpc_cidr = "10.0.0.0/26"
+          vpc_cidr = "10.0.0.0/16"
           
           # Node Configuration
-          node_instance_types = ["t3.small"]
+          node_instance_types = ["t3.micro"]
           node_desired_size   = 2
           node_min_size       = 1
           node_max_size       = 4
@@ -365,15 +375,6 @@ jobs:
         run: terraform -chdir=terraform/phase-2-eks init
 
       - name: Force unlock state (if locked)
-        run: |
-          LOCK_ID=$(aws dynamodb scan --table-name terraform-locks --region ${{ env.AWS_REGION }} --query 'Items[0].LockID.S' --output text 2>/dev/null || echo "")
-          if [ ! -z "$LOCK_ID" ] && [ "$LOCK_ID" != "None" ]; then
-            echo "Found state lock: $LOCK_ID, forcing unlock..."
-            terraform -chdir=terraform/phase-2-eks force-unlock -force "$LOCK_ID" || true
-            sleep 5
-          fi
-
-      - name: Clean up Kubernetes resources
         run: |
           echo "Cleaning up Kubernetes resources..."
           

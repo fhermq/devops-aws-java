@@ -346,7 +346,7 @@ terraform -chdir=terraform destroy
    ```
 
 2. **Use Spot instances** (saves ~70%)
-   - Edit `terraform/eks.tf` and add `capacity_type = "SPOT"`
+   - Edit `terraform/phase-2-eks/eks.tf` and add `capacity_type = "SPOT"`
 
 3. **Monitor resource usage**
    ```bash
@@ -468,6 +468,139 @@ aws ecr get-login-password --region us-east-1 | docker login --username AWS --pa
 
 # Check image exists
 aws ecr describe-images --repository-name devops-aws-java --region us-east-1
+```
+
+## GitHub Actions CI/CD Pipeline
+
+The project includes automated GitHub Actions workflows for building, testing, and deploying the microservice.
+
+### Pipeline Overview
+
+**Triggered on:**
+- Push to `main` branch
+- Git tags (v*)
+- Pull requests (validation only)
+- Manual dispatch
+
+**Pipeline Stages:**
+1. Build & Test (Maven)
+2. Build Docker Image
+3. Push to ECR
+4. Smoke Tests
+
+### Workflow Files
+
+- `.github/workflows/phase-2-eks.yml` - EKS infrastructure deployment
+- `.github/workflows/phase-3-deploy-app.yml` - Microservice build and deployment
+
+### Running Workflows
+
+**Automatic (on push to main):**
+```bash
+git add .
+git commit -m "Deploy microservice"
+git push origin main
+# GitHub Actions automatically triggers
+```
+
+**Manual (via GitHub UI):**
+1. Go to GitHub repository
+2. Click "Actions" tab
+3. Select workflow
+4. Click "Run workflow"
+5. Select branch and action (plan/apply/destroy)
+
+### Monitoring Workflow Execution
+
+```bash
+# View workflow status on GitHub
+# Or use GitHub CLI:
+gh run list --workflow=phase-2-eks.yml
+gh run view <run-id>
+gh run view <run-id> --log
+```
+
+### Workflow Secrets Required
+
+Before workflows can run, set these GitHub Secrets:
+- `AWS_ACCOUNT_ID` - Your AWS account ID
+- `AWS_REGION` - AWS region (default: us-east-1)
+
+See [SETUP.md](SETUP.md) for GitHub Secrets setup instructions.
+
+### Troubleshooting Workflows
+
+**Workflow fails with "No OpenIDConnect provider found"**
+- OIDC provider not set up in AWS
+- See [SETUP.md](SETUP.md) Prerequisites section
+
+**Workflow fails with "Access Denied"**
+- GitHub Actions IAM role doesn't have required permissions
+- Verify role has correct trust relationship
+- Check IAM policy includes ECR, EKS, and Terraform permissions
+
+**Workflow times out**
+- EKS cluster creation can take 10-15 minutes
+- Node group creation can take 5-10 minutes
+- Check AWS console for detailed status
+
+## Testing & Validation
+
+### Local Testing
+
+**Build Docker image:**
+```bash
+docker build -t devops-aws-java:latest .
+```
+
+**Run container locally:**
+```bash
+docker run -p 8080:8080 devops-aws-java:latest
+```
+
+**Test endpoints:**
+```bash
+curl http://localhost:8080/health
+curl http://localhost:8080/ready
+curl http://localhost:8080/api/hello
+curl http://localhost:8080/actuator/prometheus
+```
+
+### Unit Tests
+
+```bash
+mvn clean test
+```
+
+### Integration Tests (Post-Deployment)
+
+```bash
+# Get LoadBalancer URL
+LB_URL=$(kubectl get svc microservice -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+
+# Test health endpoints
+curl http://$LB_URL/health
+curl http://$LB_URL/ready
+
+# Test API endpoints
+curl http://$LB_URL/api/hello
+curl http://$LB_URL/api/hello?name=DevOps
+
+# Test metrics
+curl http://$LB_URL/actuator/prometheus
+```
+
+### Validation Scripts
+
+```bash
+# Phase 1: Validate backend infrastructure
+./scripts/phase-1-validate-created.sh
+
+# Phase 2: Validate EKS deployment
+./scripts/phase-2-validate-created.sh
+
+# Verify cleanup
+./scripts/phase-2-validate-destroyed.sh
 ```
 
 ## Next Steps

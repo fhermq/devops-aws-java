@@ -325,10 +325,78 @@ jobs:
 
       - name: Install AWS Load Balancer Controller
         run: |
-          echo "⚠ Skipping Load Balancer Controller installation"
-          echo "Note: Load Balancer Controller has IRSA authentication issues"
-          echo "Services will be created but NLBs won't be automatically provisioned"
-          echo "This is a known issue that requires further investigation"
+          echo "Installing AWS Load Balancer Controller..."
+          
+          # Get the Load Balancer Controller role ARN
+          ROLE_ARN=$(aws iam list-roles --query "Roles[?RoleName=='AmazonEKSLoadBalancerControllerRole'].Arn" --output text)
+          
+          if [ -z "$ROLE_ARN" ]; then
+            echo "Creating IAM role and policy for Load Balancer Controller..."
+            
+            # Download and create IAM policy
+            curl -O https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.14.1/docs/install/iam_policy.json
+            aws iam create-policy \
+              --policy-name AWSLoadBalancerControllerIAMPolicy \
+              --policy-document file://iam_policy.json 2>/dev/null || true
+            rm iam_policy.json
+            
+            # Get OIDC provider
+            OIDC_ID=$(aws eks describe-cluster --name ${{ env.AWS_REGION }} --query 'cluster.identity.oidc.issuer' --output text | cut -d'/' -f5)
+            
+            # Create trust policy
+            TRUST_POLICY=$(cat <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:oidc-provider/oidc.eks.${{ env.AWS_REGION }}.amazonaws.com/id/$OIDC_ID"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "oidc.eks.${{ env.AWS_REGION }}.amazonaws.com/id/$OIDC_ID:sub": "system:serviceaccount:kube-system:aws-load-balancer-controller",
+          "oidc.eks.${{ env.AWS_REGION }}.amazonaws.com/id/$OIDC_ID:aud": "sts.amazonaws.com"
+        }
+      }
+    }
+  ]
+}
+EOF
+)
+            
+            # Create role
+            aws iam create-role \
+              --role-name AmazonEKSLoadBalancerControllerRole \
+              --assume-role-policy-document "$TRUST_POLICY"
+            
+            # Attach policy
+            aws iam attach-role-policy \
+              --role-name AmazonEKSLoadBalancerControllerRole \
+              --policy-arn arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:policy/AWSLoadBalancerControllerIAMPolicy
+            
+            ROLE_ARN="arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/AmazonEKSLoadBalancerControllerRole"
+          fi
+          
+          # Create service account with IRSA annotation
+          kubectl delete serviceaccount -n kube-system aws-load-balancer-controller --ignore-not-found=true
+          kubectl create serviceaccount -n kube-system aws-load-balancer-controller
+          kubectl annotate serviceaccount -n kube-system aws-load-balancer-controller \
+            eks.amazonaws.com/role-arn=$ROLE_ARN --overwrite
+          
+          # Add Helm repo and deploy
+          helm repo add eks https://aws.github.io/eks-charts
+          helm repo update eks
+          
+          helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
+            -n kube-system \
+            --set clusterName=devops-aws-java-cluster \
+            --set serviceAccount.create=false \
+            --set serviceAccount.name=aws-load-balancer-controller \
+            --timeout 10m
+          
+          echo "✓ Load Balancer Controller deployed"
 
       - name: Deploy with Helm
         run: |
@@ -345,6 +413,7 @@ jobs:
             -f helm/microservice/values-prod.yaml \
             --set image.registry=${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com \
             --set imagePullSecrets[0].name=ecr-secret \
+            --set service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-scheme"=internet-facing \
             --timeout 15m
           
           echo "Waiting for deployment to be ready..."

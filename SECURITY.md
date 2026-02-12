@@ -121,6 +121,89 @@ Credentials automatically expire
 
 ---
 
+## Architecture Security
+
+### Network Security
+
+**VPC Design:**
+- Private subnets for EKS worker nodes (no direct internet access)
+- Public subnets for NAT gateways and load balancers
+- Security groups restrict traffic to necessary ports only
+
+**Load Balancer:**
+- Network Load Balancer (NLB) for high performance
+- Security group restricts inbound to port 80/443
+- Outbound traffic to EKS nodes on port 8080
+
+**EKS Cluster:**
+- Private endpoint for Kubernetes API (not exposed to internet)
+- Public endpoint restricted to authorized IPs
+- Worker nodes in private subnets with NAT gateway for outbound
+
+### IAM Security
+
+**Principle of Least Privilege:**
+- GitHub Actions role has minimal permissions
+- EKS node role has only required permissions
+- Load Balancer Controller role scoped to specific resources
+
+**OIDC Authentication:**
+- No long-lived AWS access keys
+- Temporary credentials (~1 hour lifetime)
+- Automatic credential rotation
+- Clear audit trail (repo, branch, commit)
+
+**Service Accounts:**
+- Kubernetes service accounts use IRSA (IAM Roles for Service Accounts)
+- Load Balancer Controller authenticated via IRSA
+- Pods assume IAM role for AWS API calls
+
+### Container Security
+
+**Image Security:**
+- Multi-stage Docker build reduces attack surface
+- Alpine JRE base image (minimal dependencies)
+- Non-root user execution (UID 1000)
+- ECR image scanning enabled
+- Lifecycle policy keeps only last 5 images
+
+**Pod Security:**
+- Resource limits prevent resource exhaustion
+- Liveness probes detect unhealthy pods
+- Readiness probes prevent traffic to starting pods
+- Security context enforces non-root user
+
+### Data Security
+
+**Terraform State:**
+- Stored in S3 with encryption (AES256)
+- Versioning enabled for recovery
+- Public access blocked
+- Access logging enabled
+- DynamoDB table for state locking
+
+**Secrets Management:**
+- GitHub Secrets for sensitive values
+- Never commit `terraform.tfvars`
+- Use `.gitignore` for sensitive files
+- Rotate credentials regularly
+
+### Compliance & Audit
+
+**Logging:**
+- CloudTrail logs all AWS API calls
+- S3 access logging enabled
+- EKS control plane logs available
+- Application logs via kubectl
+
+**Monitoring:**
+- CloudWatch metrics for infrastructure
+- Prometheus metrics for application
+- Pod resource usage monitoring
+- Node resource usage monitoring
+
+---
+
 ### ✅ Credentials & Secrets
 - [ ] No AWS account IDs in code files (use variables instead)
 - [ ] No AWS access keys or secret keys

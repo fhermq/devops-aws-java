@@ -24,12 +24,13 @@ resource "aws_internet_gateway" "main" {
 resource "aws_subnet" "public" {
   count                   = 2
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = cidrsubnet(var.vpc_cidr, 2, count.index)
+  cidr_block              = cidrsubnet(var.vpc_cidr, 8, count.index)
   availability_zone       = data.aws_availability_zones.available.names[count.index]
   map_public_ip_on_launch = true
 
   tags = {
     Name                                           = "${var.eks_cluster_name}-public-${count.index + 1}"
+    "kubernetes.io/cluster/${var.eks_cluster_name}" = "shared"
     "kubernetes.io/role/elb"                       = "1"
     ManagedBy                                      = "Terraform"
   }
@@ -39,11 +40,12 @@ resource "aws_subnet" "public" {
 resource "aws_subnet" "private" {
   count             = 2
   vpc_id            = aws_vpc.main.id
-  cidr_block        = cidrsubnet(var.vpc_cidr, 2, count.index + 2)
+  cidr_block        = cidrsubnet(var.vpc_cidr, 8, count.index + 2)
   availability_zone = data.aws_availability_zones.available.names[count.index]
 
   tags = {
     Name                                           = "${var.eks_cluster_name}-private-${count.index + 1}"
+    "kubernetes.io/cluster/${var.eks_cluster_name}" = "shared"
     "kubernetes.io/role/internal-elb"             = "1"
     ManagedBy                                      = "Terraform"
   }
@@ -89,28 +91,3 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
-# Data source for availability zones
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
-# Output VPC details
-output "vpc_id" {
-  description = "VPC ID"
-  value       = aws_vpc.main.id
-}
-
-output "vpc_cidr" {
-  description = "VPC CIDR"
-  value       = aws_vpc.main.cidr_block
-}
-
-output "public_subnet_ids" {
-  description = "Public Subnet IDs (for LoadBalancer)"
-  value       = aws_subnet.public[*].id
-}
-
-output "private_subnet_ids" {
-  description = "Private Subnet IDs (for EKS nodes)"
-  value       = aws_subnet.private[*].id
-}

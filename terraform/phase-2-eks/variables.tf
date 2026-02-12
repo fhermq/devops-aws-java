@@ -24,13 +24,13 @@ variable "kubernetes_version" {
 variable "vpc_cidr" {
   description = "VPC CIDR block"
   type        = string
-  default     = "10.0.0.0/26"
+  default     = "10.0.0.0/16"
 }
 
 variable "node_instance_types" {
   description = "EC2 instance types for worker nodes"
   type        = list(string)
-  default     = ["t3.medium"]
+  default     = ["t3.small"]
 }
 
 variable "node_desired_size" {

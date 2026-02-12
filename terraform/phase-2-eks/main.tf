@@ -7,6 +7,8 @@ terraform {
     }
   }
   
+  # Backend configuration uses hardcoded values that match phase-1-backend outputs
+  # These values are set up by: terraform/phase-1-backend/
   backend "s3" {
     bucket         = "devops-aws-java-terraform-state"
     key            = "phase-2-eks/terraform.tfstate"

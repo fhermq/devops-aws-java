@@ -25,9 +25,9 @@ FAILED=0
 
 # Get VPC ID
 echo "Checking VPC..."
-VPC_ID=$(aws ec2 describe-vpcs --filters "Name=cidr,Values=10.0.0.0/26" --query 'Vpcs[0].VpcId' --output text 2>/dev/null || echo "")
+VPC_ID=$(aws ec2 describe-vpcs --filters "Name=cidr,Values=10.0.0.0/16" --query 'Vpcs[0].VpcId' --output text 2>/dev/null || echo "")
 if [ "$VPC_ID" != "None" ] && [ ! -z "$VPC_ID" ]; then
-    echo -e "${GREEN}✓ VPC: $VPC_ID (10.0.0.0/26)${NC}"
+    echo -e "${GREEN}✓ VPC: $VPC_ID (10.0.0.0/16)${NC}"
     ((PASSED++))
 else
     echo -e "${RED}✗ VPC: NOT FOUND${NC}"

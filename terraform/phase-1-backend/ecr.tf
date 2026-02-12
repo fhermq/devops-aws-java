@@ -1,8 +1,7 @@
-# ECR Repository
+# ECR repository for Docker images
 resource "aws_ecr_repository" "microservice" {
   name                 = var.ecr_repository_name
   image_tag_mutability = "MUTABLE"
-  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = true
@@ -13,13 +12,11 @@ resource "aws_ecr_repository" "microservice" {
   }
 
   tags = {
-    Name        = var.ecr_repository_name
-    Environment = "production"
-    ManagedBy   = "Terraform"
+    Name = var.ecr_repository_name
   }
 }
 
-# ECR Lifecycle Policy - Keep last 10 images
+# Lifecycle policy to keep last 5 images
 resource "aws_ecr_lifecycle_policy" "microservice" {
   repository = aws_ecr_repository.microservice.name
 
@@ -27,11 +24,11 @@ resource "aws_ecr_lifecycle_policy" "microservice" {
     rules = [
       {
         rulePriority = 1
-        description  = "Keep last 10 images"
+        description  = "Keep last 5 images"
         selection = {
           tagStatus     = "any"
           countType     = "imageCountMoreThan"
-          countNumber   = var.image_retention_count
+          countNumber   = 5
         }
         action = {
           type = "expire"
@@ -39,15 +36,4 @@ resource "aws_ecr_lifecycle_policy" "microservice" {
       }
     ]
   })
-}
-
-# Output ECR Registry URL
-output "ecr_registry_url" {
-  description = "ECR Registry URL"
-  value       = aws_ecr_repository.microservice.repository_url
-}
-
-output "ecr_repository_name" {
-  description = "ECR Repository Name"
-  value       = aws_ecr_repository.microservice.name
 }

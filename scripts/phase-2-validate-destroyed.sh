@@ -25,7 +25,7 @@ FAILED=0
 
 # Check VPC
 echo "Checking VPC..."
-VPC_ID=$(aws ec2 describe-vpcs --filters "Name=cidr,Values=10.0.0.0/26" --query 'Vpcs[0].VpcId' --output text 2>/dev/null || echo "")
+VPC_ID=$(aws ec2 describe-vpcs --filters "Name=cidr,Values=10.0.0.0/16" --query 'Vpcs[0].VpcId' --output text 2>/dev/null || echo "")
 if [ -z "$VPC_ID" ] || [ "$VPC_ID" == "None" ]; then
     echo -e "${GREEN}✓ VPC: Deleted${NC}"
     ((PASSED++))
@@ -37,7 +37,7 @@ fi
 # Check Subnets
 echo ""
 echo "Checking Subnets..."
-SUBNET_COUNT=$(aws ec2 describe-subnets --filters "Name=cidr-block,Values=10.0.0.0/28,10.0.0.16/28,10.0.0.32/28,10.0.0.48/28" --query 'length(Subnets)' --output text 2>/dev/null || echo "0")
+SUBNET_COUNT=$(aws ec2 describe-subnets --filters "Name=cidr-block,Values=10.0.0.0/24,10.0.0.1/24,10.0.0.2/24,10.0.0.3/24" --query 'length(Subnets)' --output text 2>/dev/null || echo "0")
 if [ "$SUBNET_COUNT" == "0" ]; then
     echo -e "${GREEN}✓ Subnets: All deleted${NC}"
     ((PASSED++))

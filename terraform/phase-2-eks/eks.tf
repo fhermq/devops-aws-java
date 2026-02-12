@@ -124,23 +124,3 @@ resource "aws_iam_role_policy_attachment" "eks_container_registry_policy" {
   role       = aws_iam_role.eks_node_role.name
 }
 
-# Output cluster details
-output "eks_cluster_name" {
-  description = "EKS Cluster Name"
-  value       = aws_eks_cluster.main.name
-}
-
-output "eks_cluster_endpoint" {
-  description = "EKS Cluster Endpoint"
-  value       = aws_eks_cluster.main.endpoint
-}
-
-output "eks_cluster_version" {
-  description = "EKS Cluster Version"
-  value       = aws_eks_cluster.main.version
-}
-
-output "eks_cluster_arn" {
-  description = "EKS Cluster ARN"
-  value       = aws_eks_cluster.main.arn
-}
