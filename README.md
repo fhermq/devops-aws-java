@@ -258,7 +258,11 @@ MIT
 
 ## 👤 Author
 
-DevOps Team
+Fernando Mirasol
+
+## 🙏 Acknowledgments
+
+Built with assistance from Kiro AI Assistant for architecture design, code generation, and DevOps pipeline implementation.
 
 ## 🤝 Contributing
 
