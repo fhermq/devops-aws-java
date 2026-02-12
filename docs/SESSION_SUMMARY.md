@@ -166,32 +166,140 @@ devops-aws-java/
 
 ---
 
-## Next Steps
+## Next Session: End-to-End Testing & GitHub Actions Automation
 
-1. **Enable GitHub Workflows** - Re-enable workflows on GitHub UI if needed
-2. **Test CI/CD Pipeline** - Push code change to trigger workflows
-3. **Monitor Deployment** - Watch GitHub Actions execution
-4. **Validate Endpoints** - Test microservice via LoadBalancer DNS
-5. **Set Up Monitoring** - Configure CloudWatch/Prometheus
-6. **Implement GitOps** - Consider ArgoCD for continuous deployment
+### PHASE 1: Manual E2E Testing (Create → Validate → Destroy)
+
+**Step 1: Phase 1 Backend Infrastructure Setup**
+```bash
+# Run Phase 1 setup script
+./infrastructure/scripts/phase-1-setup-backend.sh
+
+# Validate Phase 1 resources created
+./infrastructure/scripts/phase-1-validate-created.sh
+```
+Expected: S3 bucket, DynamoDB table, ECR repository, GitHub OIDC provider created
+
+**Step 2: Phase 2 EKS Cluster Deployment**
+```bash
+# Initialize and deploy Terraform
+cd infrastructure/terraform/phase-2-eks
+terraform init
+terraform plan
+terraform apply -auto-approve
+
+# Validate Phase 2 resources created
+../../scripts/phase-2-validate-created.sh
+```
+Expected: VPC, EKS cluster, worker nodes, Load Balancer Controller, Nginx test deployment
+
+**Step 3: Phase 3 Java Microservice Deployment**
+```bash
+# Update kubeconfig
+aws eks update-kubeconfig --region us-east-1 --name devops-aws-java-cluster
+
+# Deploy microservice with Helm
+helm install microservice infrastructure/helm/microservice \
+  -f infrastructure/helm/microservice/values-prod.yaml
+
+# Validate endpoints
+kubectl get svc microservice
+LB_DNS=$(kubectl get svc microservice -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+curl http://$LB_DNS/health
+curl http://$LB_DNS/api/hello
+```
+Expected: Microservice pods running, LoadBalancer DNS provisioned, endpoints responding
+
+**Step 4: Manual Destroy (Reverse Order)**
+```bash
+# Destroy Phase 3 (Microservice)
+helm uninstall microservice
+
+# Destroy Phase 2 (EKS Infrastructure)
+cd infrastructure/terraform/phase-2-eks
+terraform destroy -auto-approve
+
+# Validate Phase 2 cleanup
+../../scripts/phase-2-validate-destroyed.sh
+```
+Expected: All resources cleaned up, no orphaned resources
+
+### PHASE 2: GitHub Actions Automation
+
+**Step 1: Enable GitHub Actions Workflows**
+- Go to GitHub repository Settings → Actions
+- Enable workflows if disabled
+- Verify phase-2-eks.yml and phase-3-deploy-app.yml are visible
+
+**Step 2: Trigger Phase 2 Workflow (EKS Deployment)**
+- Go to GitHub Actions → phase-2-eks.yml
+- Click "Run workflow" → Select "apply" action
+- Monitor execution
+- Validate with: `./infrastructure/scripts/phase-2-validate-created.sh`
+
+**Step 3: Trigger Phase 3 Workflow (App Deployment)**
+- Go to GitHub Actions → phase-3-deploy-app.yml
+- Click "Run workflow" or push to main branch
+- Monitor execution
+- Validate endpoints:
+  ```bash
+  LB_DNS=$(kubectl get svc microservice -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+  curl http://$LB_DNS/health
+  curl http://$LB_DNS/ready
+  curl http://$LB_DNS/api/hello
+  ```
+
+**Step 4: Trigger Destroy Workflow**
+- Go to GitHub Actions → phase-2-eks.yml
+- Click "Run workflow" → Select "destroy" action
+- Monitor execution
+- Validate cleanup: `./infrastructure/scripts/phase-2-validate-destroyed.sh`
+
+### Validation Checklist
+
+**Phase 1 Backend:**
+- [ ] S3 bucket created and accessible
+- [ ] DynamoDB table created with correct schema
+- [ ] ECR repository created
+- [ ] GitHub OIDC provider configured
+- [ ] GitHub Actions IAM role has correct permissions
+
+**Phase 2 EKS:**
+- [ ] VPC created (10.0.0.0/16)
+- [ ] EKS cluster ACTIVE
+- [ ] 2 worker nodes running
+- [ ] Load Balancer Controller pods running
+- [ ] Nginx test pods running
+- [ ] NLB created with DNS provisioned
+
+**Phase 3 Microservice:**
+- [ ] Microservice pods running (3 replicas)
+- [ ] LoadBalancer service created
+- [ ] NLB DNS endpoint accessible
+- [ ] /health endpoint returns 200
+- [ ] /ready endpoint returns 200
+- [ ] /api/hello endpoint returns 200
+- [ ] /actuator/prometheus endpoint returns 200
+
+**Cleanup:**
+- [ ] All Kubernetes resources deleted
+- [ ] EKS cluster deleted
+- [ ] VPC deleted
+- [ ] No orphaned resources in AWS
+
+### Success Criteria
+
+✅ Manual E2E testing completes successfully (create → validate → destroy)
+✅ GitHub Actions workflows execute without errors
+✅ All endpoints respond correctly
+✅ Full lifecycle automation works end-to-end
+✅ No breaking changes from project restructuring
+✅ All paths and references correct after reorganization
 
 ---
 
-## Important Notes for Next Agent
-
-1. **Project structure is now clean** - All files organized in logical folders
-2. **All references updated** - Workflows, docs, and configurations use new paths
-3. **Documentation is simplified** - 6 core files with clear purposes
-4. **Infrastructure is working** - All services deployed and responding
-5. **Author attribution added** - Fernando Mirasol as author, Kiro acknowledged
-6. **Ready for production** - Project is production-ready and scalable
-
----
-
-**Status: ✅ PROJECT RESTRUCTURING COMPLETE**  
-**Last Updated**: February 11, 2026  
-**Commits**: bc307dd, fe3073c, 87307e5  
-**Next Task**: Monitor and maintain the deployed infrastructure
+**Status: ✅ PROJECT RESTRUCTURING COMPLETE - Ready for E2E Testing**  
+**Next Task**: Execute manual E2E testing and GitHub Actions automation
 - ✅ Helm charts (deployment, service, HPA, configmap)
 - ✅ Terraform refactored following best practices
 - ✅ Documentation consolidated and simplified
