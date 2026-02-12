@@ -4,42 +4,38 @@ A production-grade CI/CD pipeline for Spring Boot microservices on AWS with Kube
 
 ## 🚀 Quick Start
 
-**First time setup?** Start here: [SETUP.md](SETUP.md)
+**First time setup?** Start here: [docs/SETUP.md](docs/SETUP.md)
 
 ```bash
 # 1. Clone and configure
 git clone https://github.com/fhermq/devops-aws-java.git
 cd devops-aws-java
-cp terraform/terraform.tfvars.example terraform/terraform.tfvars
-# Edit terraform/terraform.tfvars with your AWS account ID and GitHub org
+cp infrastructure/terraform/terraform.tfvars.example infrastructure/terraform/terraform.tfvars
+# Edit infrastructure/terraform/terraform.tfvars with your AWS account ID and GitHub org
 
 # 2. Deploy infrastructure
-terraform -chdir=terraform init
-terraform -chdir=terraform apply -auto-approve
+terraform -chdir=infrastructure/terraform init
+terraform -chdir=infrastructure/terraform apply -auto-approve
 
 # 3. Configure kubectl
 aws eks update-kubeconfig --region us-east-1 --name devops-aws-java-cluster
 
 # 4. Deploy microservice
-helm install microservice helm/microservice -f helm/microservice/values-prod.yaml
+helm install microservice infrastructure/helm/microservice -f infrastructure/helm/microservice/values-prod.yaml
 
 # 5. Get LoadBalancer URL
 kubectl get svc microservice -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
 ```
 
-See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for detailed instructions.
+See [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) for detailed instructions.
 
 ## 📚 Documentation
 
-- **[SETUP.md](SETUP.md)** - Initial setup and configuration (AWS, GitHub, credentials)
-- **[SECURITY.md](SECURITY.md)** - Security best practices and pre-commit checklist
-- **[OIDC_SETUP.md](OIDC_SETUP.md)** - GitHub Actions OIDC provider setup (required for CI/CD)
-- **[GITHUB_SECRETS_SETUP.md](GITHUB_SECRETS_SETUP.md)** - GitHub Secrets configuration for Terraform
-- **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** - Complete deployment instructions
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** - How to contribute to this project
-- **[E2E_TEST_PLAN.md](E2E_TEST_PLAN.md)** - End-to-end testing procedures
-- **[CI_CD_WORKFLOW_SUMMARY.md](CI_CD_WORKFLOW_SUMMARY.md)** - GitHub Actions pipeline details
-- **[terraform/EKS_DEPLOYMENT_GUIDE.md](terraform/EKS_DEPLOYMENT_GUIDE.md)** - EKS-specific deployment guide
+- **[docs/SETUP.md](docs/SETUP.md)** - Initial setup and configuration (AWS, GitHub, credentials)
+- **[docs/SECURITY.md](docs/SECURITY.md)** - Security best practices and pre-commit checklist
+- **[docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md)** - Complete deployment instructions
+- **[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)** - How to contribute to this project
+- **[infrastructure/terraform/README.md](infrastructure/terraform/README.md)** - Terraform documentation
 
 ## 📋 Features
 
@@ -82,18 +78,31 @@ See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for detailed instructions.
 
 ```
 .
-├── src/                          # Spring Boot application
-├── pom.xml                       # Maven configuration
-├── Dockerfile                    # Multi-stage build
-├── .github/workflows/deploy.yml  # GitHub Actions pipeline
-├── terraform/                    # Infrastructure as Code
-│   ├── main.tf, vpc.tf, eks.tf, ecr.tf, iam.tf
-│   └── EKS_DEPLOYMENT_GUIDE.md
-├── helm/microservice/            # Helm chart
-│   ├── Chart.yaml, values.yaml
-│   ├── values-dev.yaml, values-prod.yaml
-│   └── templates/
-├── DEPLOYMENT_GUIDE.md           # Complete deployment guide
+├── app/                          # Java Application
+│   ├── src/                      # Spring Boot application
+│   ├── pom.xml                   # Maven configuration
+│   ├── Dockerfile                # Multi-stage build
+│   └── .dockerignore
+├── infrastructure/               # Infrastructure as Code
+│   ├── terraform/                # Terraform configurations
+│   │   ├── phase-1-backend/      # S3, DynamoDB, ECR, IAM
+│   │   ├── phase-2-eks/          # VPC, EKS, worker nodes
+│   │   └── README.md
+│   ├── helm/                     # Helm charts
+│   │   ├── microservice/         # Java microservice chart
+│   │   ├── nginx-test/           # Test deployment
+│   │   └── aws-load-balancer-controller/
+│   ├── scripts/                  # Deployment scripts
+│   └── README.md
+├── docs/                         # Documentation
+│   ├── SETUP.md                  # Initial setup
+│   ├── DEPLOYMENT_GUIDE.md       # Deployment instructions
+│   ├── SECURITY.md               # Security practices
+│   ├── CONTRIBUTING.md           # Contribution guide
+│   └── SESSION_SUMMARY.md        # Development notes
+├── .github/workflows/            # GitHub Actions pipelines
+│   ├── phase-2-eks.yml           # EKS deployment
+│   └── phase-3-deploy-app.yml    # App deployment
 └── README.md                     # This file
 ```
 
@@ -151,7 +160,7 @@ Microservice Pods (Auto-scaling)
 ### Local Testing
 ```bash
 # Build Docker image
-docker build -t devops-aws-java:latest .
+docker build -t devops-aws-java:latest app/
 
 # Run container
 docker run -p 8080:8080 devops-aws-java:latest
@@ -163,6 +172,7 @@ curl http://localhost:8080/api/hello
 
 ### Unit Tests
 ```bash
+cd app
 mvn clean test
 ```
 
@@ -180,12 +190,12 @@ curl http://<ALB-URL>/actuator/prometheus
 
 ### Development
 ```bash
-helm install microservice helm/microservice -f helm/microservice/values-dev.yaml
+helm install microservice infrastructure/helm/microservice -f infrastructure/helm/microservice/values-dev.yaml
 ```
 
 ### Production
 ```bash
-helm install microservice helm/microservice -f helm/microservice/values-prod.yaml
+helm install microservice infrastructure/helm/microservice -f infrastructure/helm/microservice/values-prod.yaml
 ```
 
 ## 📈 Monitoring
@@ -240,7 +250,7 @@ kubectl describe pod <pod-name>
 kubectl logs <pod-name>
 ```
 
-See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for more troubleshooting.
+See [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) for more troubleshooting.
 
 ## 📝 License
 

@@ -47,13 +47,14 @@ jobs:
 
       - name: Run Maven build and tests
         run: mvn clean package -B
+        working-directory: app
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: target/surefire-reports/
+          path: app/target/surefire-reports/
 
   build-and-push-image:
     name: Build & Push Docker Image
@@ -94,7 +95,7 @@ jobs:
       - name: Build Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: app
           push: false
           tags: |
             ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ steps.image-tags.outputs.tag }}
@@ -409,8 +410,8 @@ EOF
             --dry-run=client -o yaml | kubectl apply -f -
           
           echo "Deploying microservice with Helm..."
-          helm upgrade --install microservice helm/microservice \
-            -f helm/microservice/values-prod.yaml \
+          helm upgrade --install microservice infrastructure/helm/microservice \
+            -f infrastructure/helm/microservice/values-prod.yaml \
             --set image.registry=${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com \
             --set imagePullSecrets[0].name=ecr-secret \
             --set service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-scheme"=internet-facing \

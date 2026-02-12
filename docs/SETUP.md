@@ -65,13 +65,13 @@ cd devops-aws-java
 
 ```bash
 # Copy the template
-cp terraform/terraform.tfvars.example terraform/terraform.tfvars
+cp infrastructure/terraform/terraform.tfvars.example infrastructure/terraform/terraform.tfvars
 
 # Open in your editor
-nano terraform/terraform.tfvars
+nano infrastructure/terraform/terraform.tfvars
 ```
 
-### Step 3: Configure terraform/terraform.tfvars
+### Step 3: Configure infrastructure/terraform/terraform.tfvars
 
 Edit the file with your values:
 

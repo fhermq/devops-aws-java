@@ -123,8 +123,8 @@ kubectl get pods -A
 
 #### Option A: Development Environment
 ```bash
-helm install microservice helm/microservice \
-  -f helm/microservice/values-dev.yaml \
+helm install microservice infrastructure/helm/microservice \
+  -f infrastructure/helm/microservice/values-dev.yaml \
   -n default
 ```
 
@@ -135,8 +135,8 @@ helm install microservice helm/microservice \
 
 #### Option B: Production Environment
 ```bash
-helm install microservice helm/microservice \
-  -f helm/microservice/values-prod.yaml \
+helm install microservice infrastructure/helm/microservice \
+  -f infrastructure/helm/microservice/values-prod.yaml \
   -n default
 ```
 
@@ -251,12 +251,12 @@ aws ecr get-login-password --region us-east-1 | \
 docker push YOUR_AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/devops-aws-java:v1.0.0
 
 # 5. Update Helm values
-# Edit helm/microservice/values.yaml and set:
+# Edit infrastructure/helm/microservice/values.yaml and set:
 # image.tag: v1.0.0
 
 # 6. Deploy to EKS
-helm upgrade --install microservice helm/microservice \
-  -f helm/microservice/values-prod.yaml
+helm upgrade --install microservice infrastructure/helm/microservice \
+  -f infrastructure/helm/microservice/values-prod.yaml
 ```
 
 ## Monitoring & Troubleshooting
@@ -594,13 +594,13 @@ curl http://$LB_URL/actuator/prometheus
 
 ```bash
 # Phase 1: Validate backend infrastructure
-./scripts/phase-1-validate-created.sh
+./infrastructure/scripts/phase-1-validate-created.sh
 
 # Phase 2: Validate EKS deployment
-./scripts/phase-2-validate-created.sh
+./infrastructure/scripts/phase-2-validate-created.sh
 
 # Verify cleanup
-./scripts/phase-2-validate-destroyed.sh
+./infrastructure/scripts/phase-2-validate-destroyed.sh
 ```
 
 ## Next Steps

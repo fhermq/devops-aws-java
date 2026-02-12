@@ -14,7 +14,7 @@ on:
           - destroy
   push:
     paths:
-      - 'terraform/phase-2-eks/**'
+      - 'infrastructure/terraform/phase-2-eks/**'
       - '.github/workflows/phase-2-eks.yml'
     branches:
       - main
@@ -39,7 +39,7 @@ jobs:
 
       - name: Create terraform.tfvars
         run: |
-          cat > terraform/phase-2-eks/terraform.tfvars << 'EOF'
+          cat > infrastructure/terraform/phase-2-eks/terraform.tfvars << 'EOF'
           # Phase 2: EKS Cluster Configuration
           aws_region     = "${{ secrets.AWS_REGION }}"
           aws_account_id = "${{ secrets.AWS_ACCOUNT_ID }}"
@@ -72,23 +72,23 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
-        run: terraform -chdir=terraform/phase-2-eks init
+        run: terraform -chdir=infrastructure/terraform/phase-2-eks init
 
       - name: Terraform Validate
-        run: terraform -chdir=terraform/phase-2-eks validate
+        run: terraform -chdir=infrastructure/terraform/phase-2-eks validate
 
       - name: Terraform Plan
         id: plan
         run: |
-          terraform -chdir=terraform/phase-2-eks plan -out=tfplan
-          terraform -chdir=terraform/phase-2-eks show -json tfplan > tfplan.json
+          terraform -chdir=infrastructure/terraform/phase-2-eks plan -out=tfplan
+          terraform -chdir=infrastructure/terraform/phase-2-eks show -json tfplan > tfplan.json
         continue-on-error: true
 
       - name: Upload plan artifact
         uses: actions/upload-artifact@v4
         with:
           name: phase-2-tfplan
-          path: terraform/phase-2-eks/tfplan
+          path: infrastructure/terraform/phase-2-eks/tfplan
           retention-days: 1
 
   terraform-apply:
@@ -117,7 +117,7 @@ jobs:
 
       - name: Create terraform.tfvars
         run: |
-          cat > terraform/phase-2-eks/terraform.tfvars << 'EOF'
+          cat > infrastructure/terraform/phase-2-eks/terraform.tfvars << 'EOF'
           # Phase 2: EKS Cluster Configuration
           aws_region     = "${{ secrets.AWS_REGION }}"
           aws_account_id = "${{ secrets.AWS_ACCOUNT_ID }}"
@@ -137,32 +137,22 @@ jobs:
           EOF
 
       - name: Terraform Init
-        run: terraform -chdir=terraform/phase-2-eks init
+        run: terraform -chdir=infrastructure/terraform/phase-2-eks init
 
       - name: Terraform Apply
-        run: terraform -chdir=terraform/phase-2-eks apply -auto-approve
+        run: terraform -chdir=infrastructure/terraform/phase-2-eks apply -auto-approve
 
-      - name: Get Terraform Outputs       # Node Configuration
-          node_instance_types = ["t3.small"]
-          node_desired_size   = 2
-          node_min_size       = 1
-          node_max_size       = 4
-          EOF
-
-      - name: Terraform Init
-        run: terraform -chdir=terraform/phase-2-eks init
-
-      - name: Force unlock state (if locked)
+      - name: Get Terraform Outputs
         id: outputs
         run: |
-          terraform -chdir=terraform/phase-2-eks output -json > terraform/phase-2-eks/outputs.json
-          cat terraform/phase-2-eks/outputs.json
+          terraform -chdir=infrastructure/terraform/phase-2-eks output -json > infrastructure/terraform/phase-2-eks/outputs.json
+          cat infrastructure/terraform/phase-2-eks/outputs.json
 
       - name: Upload outputs artifact
         uses: actions/upload-artifact@v4
         with:
           name: phase-2-outputs
-          path: terraform/phase-2-eks/outputs.json
+          path: infrastructure/terraform/phase-2-eks/outputs.json
           retention-days: 7
 
       - name: Deployment summary
@@ -219,7 +209,7 @@ jobs:
           EOF
           
           # Deploy AWS Load Balancer Controller via Helm
-          helm upgrade --install aws-load-balancer-controller helm/aws-load-balancer-controller \
+          helm upgrade --install aws-load-balancer-controller infrastructure/helm/aws-load-balancer-controller \
             --namespace kube-system \
             -f /tmp/alb-controller-values.yaml \
             --timeout 5m
@@ -257,7 +247,7 @@ jobs:
       - name: Deploy Nginx Test
         run: |
           echo "Deploying nginx test application..."
-          helm upgrade --install nginx-test helm/nginx-test \
+          helm upgrade --install nginx-test infrastructure/helm/nginx-test \
             --namespace default \
             --timeout 5m
           
@@ -352,7 +342,7 @@ jobs:
 
       - name: Create terraform.tfvars
         run: |
-          cat > terraform/phase-2-eks/terraform.tfvars << 'EOF'
+          cat > infrastructure/terraform/phase-2-eks/terraform.tfvars << 'EOF'
           # Phase 2: EKS Cluster Configuration
           aws_region     = "${{ secrets.AWS_REGION }}"
           aws_account_id = "${{ secrets.AWS_ACCOUNT_ID }}"
@@ -372,7 +362,7 @@ jobs:
           EOF
 
       - name: Terraform Init
-        run: terraform -chdir=terraform/phase-2-eks init
+        run: terraform -chdir=infrastructure/terraform/phase-2-eks init
 
       - name: Force unlock state (if locked)
         run: |
@@ -407,7 +397,7 @@ jobs:
           echo "✓ Kubernetes resources cleaned up"
 
       - name: Terraform Destroy
-        run: terraform -chdir=terraform/phase-2-eks destroy -auto-approve
+        run: terraform -chdir=infrastructure/terraform/phase-2-eks destroy -auto-approve
 
       - name: Destruction summary
         run: |
