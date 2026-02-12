@@ -84,6 +84,7 @@ See [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) for detailed instructio
 │   ├── Dockerfile                # Multi-stage build
 │   └── .dockerignore
 ├── infrastructure/               # Infrastructure as Code
+│   ├── github-actions-ecr-policy.json  # IAM policy for GitHub Actions
 │   ├── terraform/                # Terraform configurations
 │   │   ├── phase-1-backend/      # S3, DynamoDB, ECR, IAM
 │   │   ├── phase-2-eks/          # VPC, EKS, worker nodes
