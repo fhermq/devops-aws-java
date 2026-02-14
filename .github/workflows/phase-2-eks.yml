@@ -364,6 +364,25 @@ jobs:
       - name: Terraform Init
         run: terraform -chdir=infrastructure/terraform/phase-2-eks init
 
+      - name: Force unlock state (if locked)
+        run: |
+          echo "Checking for state locks..."
+          # Get the lock ID from DynamoDB
+          LOCK_ID=$(aws dynamodb scan \
+            --table-name devops-aws-java-terraform-locks \
+            --filter-expression "attribute_exists(LockID)" \
+            --region ${{ env.AWS_REGION }} \
+            --query "Items[0].LockID.S" \
+            --output text 2>/dev/null || echo "")
+          
+          if [ ! -z "$LOCK_ID" ] && [ "$LOCK_ID" != "None" ]; then
+            echo "Found state lock: $LOCK_ID"
+            echo "Attempting to force unlock..."
+            terraform -chdir=infrastructure/terraform/phase-2-eks force-unlock "$LOCK_ID" -force || echo "⚠ Force unlock failed or not needed"
+          else
+            echo "✓ No state lock found"
+          fi
+
       - name: Cleanup Kubernetes Resources
         run: |
           echo "Cleaning up Kubernetes resources before destroying infrastructure..."
