@@ -411,7 +411,7 @@ jobs:
           
           echo "✓ Kubernetes resources cleaned up"
 
-      - name: Force unlock state (if locked)
+      - name: Cleanup AWS resources
         run: |
           echo "Cleaning up remaining AWS resources..."
           
