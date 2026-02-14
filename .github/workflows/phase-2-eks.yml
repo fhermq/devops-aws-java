@@ -364,9 +364,37 @@ jobs:
       - name: Terraform Init
         run: terraform -chdir=infrastructure/terraform/phase-2-eks init
 
+      - name: Cleanup Kubernetes Resources
+        run: |
+          echo "Cleaning up Kubernetes resources before destroying infrastructure..."
+          
+          # Update kubeconfig
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name devops-aws-java-cluster 2>/dev/null || true
+          
+          # Delete all Helm releases
+          echo "Deleting Helm releases..."
+          helm list --all-namespaces --short 2>/dev/null | while read release; do
+            if [ ! -z "$release" ]; then
+              NAMESPACE=$(helm list --all-namespaces | grep "$release" | awk '{print $1}')
+              echo "  Uninstalling: $release from $NAMESPACE"
+              helm uninstall "$release" -n "$NAMESPACE" 2>/dev/null || true
+            fi
+          done
+          
+          # Delete all services of type LoadBalancer (this removes NLBs)
+          echo "Deleting LoadBalancer services..."
+          kubectl delete svc -l app.kubernetes.io/name=microservice --all-namespaces 2>/dev/null || true
+          kubectl delete svc -l app.kubernetes.io/name=nginx-test --all-namespaces 2>/dev/null || true
+          
+          # Wait for NLBs to be deleted
+          echo "Waiting for NLBs to be deleted..."
+          sleep 30
+          
+          echo "✓ Kubernetes resources cleaned up"
+
       - name: Force unlock state (if locked)
         run: |
-          echo "Cleaning up Kubernetes resources..."
+          echo "Cleaning up remaining AWS resources..."
           
           # Delete EKS node groups
           echo "Deleting EKS node groups..."
@@ -382,9 +410,9 @@ jobs:
             sleep 30
           fi
           
-          # Delete Network Load Balancers
-          echo "Deleting Network Load Balancers..."
-          NLB_ARNS=$(aws elbv2 describe-load-balancers --region ${{ env.AWS_REGION }} --query "LoadBalancers[?Type=='network'].LoadBalancerArn" --output text 2>/dev/null || echo "")
+          # Delete any remaining Network Load Balancers created by Kubernetes
+          echo "Deleting any remaining Network Load Balancers..."
+          NLB_ARNS=$(aws elbv2 describe-load-balancers --region ${{ env.AWS_REGION }} --query "LoadBalancers[?Type=='network' && contains(LoadBalancerName, 'devops-aws-java')].LoadBalancerArn" --output text 2>/dev/null || echo "")
           
           if [ ! -z "$NLB_ARNS" ]; then
             for nlb_arn in $NLB_ARNS; do
@@ -394,7 +422,7 @@ jobs:
             sleep 15
           fi
           
-          echo "✓ Kubernetes resources cleaned up"
+          echo "✓ AWS resources cleaned up"
 
       - name: Terraform Destroy
         run: terraform -chdir=infrastructure/terraform/phase-2-eks destroy -auto-approve
