@@ -219,104 +219,6 @@ jobs:
           kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller || true
           echo "✓ AWS Load Balancer Controller deployed"
 
-  deploy-nginx-test:
-    name: Deploy Nginx Test
-    runs-on: ubuntu-latest
-    needs: install-load-balancer-controller
-    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
-    permissions:
-      contents: read
-      id-token: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-actions-ecr-role
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Update kubeconfig
-        run: |
-          aws eks update-kubeconfig \
-            --region ${{ env.AWS_REGION }} \
-            --name devops-aws-java-cluster
-
-      - name: Deploy Nginx Test
-        run: |
-          echo "Deploying nginx test application..."
-          helm upgrade --install nginx-test infrastructure/helm/nginx-test \
-            --namespace default \
-            --timeout 5m
-          
-          echo "Waiting for nginx deployment to be ready..."
-          kubectl rollout status deployment/nginx-test --timeout=5m || true
-          
-          echo "✓ Nginx test deployed"
-
-      - name: Wait for LoadBalancer to be provisioned
-        run: |
-          echo "Waiting for LoadBalancer to be provisioned..."
-          for i in {1..60}; do
-            LB_DNS=$(kubectl get svc nginx-test -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
-            if [ ! -z "$LB_DNS" ]; then
-              echo "✓ LoadBalancer provisioned: $LB_DNS"
-              echo "LB_DNS=$LB_DNS" >> $GITHUB_ENV
-              break
-            fi
-            echo "Waiting... ($i/60)"
-            sleep 5
-          done
-          
-          if [ -z "$LB_DNS" ]; then
-            echo "⚠ LoadBalancer not yet provisioned, checking NLB status..."
-            aws elbv2 describe-load-balancers --region ${{ env.AWS_REGION }} --query 'LoadBalancers[*].[LoadBalancerName,DNSName,State.Code]' --output table || true
-          fi
-
-      - name: Test Nginx Endpoint
-        run: |
-          if [ ! -z "$LB_DNS" ]; then
-            echo "Testing nginx endpoint: http://$LB_DNS"
-            for i in {1..10}; do
-              response=$(curl -s -o /dev/null -w "%{http_code}" http://$LB_DNS 2>/dev/null || echo "000")
-              if [ "$response" = "200" ]; then
-                echo "✓ Nginx is responding with HTTP 200"
-                curl -s http://$LB_DNS | head -20
-                break
-              fi
-              echo "Attempt $i: HTTP $response, retrying..."
-              sleep 5
-            done
-          else
-            echo "⚠ LoadBalancer DNS not available yet, skipping endpoint test"
-          fi
-
-      - name: Get LoadBalancer URL
-        run: |
-          echo "=== Infrastructure Validation Complete ==="
-          echo ""
-          echo "LoadBalancer URL:"
-          if [ ! -z "$LB_DNS" ]; then
-            echo "http://$LB_DNS"
-          else
-            echo "Checking via AWS CLI..."
-            aws elbv2 describe-load-balancers --region ${{ env.AWS_REGION }} --query 'LoadBalancers[*].DNSName' --output text || echo "No NLBs found"
-          fi
-
-      - name: Phase 2 Summary
-        run: |
-          echo "✓ Phase 2 Complete!"
-          echo ""
-          echo "Infrastructure Status:"
-          echo "- EKS Cluster: devops-aws-java-cluster (ACTIVE)"
-          echo "- Load Balancer Controller: Installed"
-          echo "- Nginx Test: Deployed"
-          echo "- NLB: Created and accessible"
-          echo ""
-          echo "Next: Deploy Java application in Phase 3"
-
   terraform-destroy:
     name: Terraform Destroy
     runs-on: ubuntu-latest
@@ -403,7 +305,6 @@ jobs:
           # Delete all services of type LoadBalancer (this removes NLBs)
           echo "Deleting LoadBalancer services..."
           kubectl delete svc -l app.kubernetes.io/name=microservice --all-namespaces 2>/dev/null || true
-          kubectl delete svc -l app.kubernetes.io/name=nginx-test --all-namespaces 2>/dev/null || true
           
           # Wait for NLBs to be deleted
           echo "Waiting for NLBs to be deleted..."

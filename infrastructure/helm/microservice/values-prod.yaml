@@ -3,7 +3,7 @@ replicaCount: 1
 
 image:
   tag: latest
-  pullPolicy: IfNotPresent
+  pullPolicy: Always  # Force pull on every pod start
 
 resources:
   limits:

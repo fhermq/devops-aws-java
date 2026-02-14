@@ -8,11 +8,17 @@ spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
+  {{- with .Values.deploymentStrategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "microservice.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      annotations:
+        deployment.kubernetes.io/revision: "{{ .Release.Revision }}"
       labels:
         {{- include "microservice.selectorLabels" . | nindent 8 }}
     spec:

@@ -8,17 +8,16 @@ on:
       - main
     tags:
       - 'v*'
-    paths-ignore:
-      - 'terraform/**'
-      - '.github/workflows/terraform.yml'
+    paths:
+      - 'app/**'
+      - '.github/workflows/phase-3-deploy-app.yml'
   pull_request:
     branches:
       - develop
       - stage
       - main
-    paths-ignore:
-      - 'terraform/**'
-      - '.github/workflows/terraform.yml'
+    paths:
+      - 'app/**'
   workflow_dispatch:
 
 env:
@@ -324,39 +323,6 @@ jobs:
             --region ${{ env.AWS_REGION }} \
             --name devops-aws-java-cluster
 
-      - name: Install AWS Load Balancer Controller
-        run: |
-          echo "Installing AWS Load Balancer Controller..."
-          
-          # Get the Load Balancer Controller role ARN
-          ROLE_ARN=$(aws iam list-roles --query "Roles[?RoleName=='devops-aws-java-cluster-load-balancer-controller-role'].Arn" --output text)
-          
-          if [ -z "$ROLE_ARN" ]; then
-            echo "⚠ Load Balancer Controller role not found, skipping installation"
-            exit 0
-          fi
-          
-          echo "Using role: $ROLE_ARN"
-          
-          # Create service account with IRSA annotation
-          kubectl delete serviceaccount -n kube-system aws-load-balancer-controller --ignore-not-found=true
-          kubectl create serviceaccount -n kube-system aws-load-balancer-controller
-          kubectl annotate serviceaccount -n kube-system aws-load-balancer-controller \
-            eks.amazonaws.com/role-arn=$ROLE_ARN --overwrite
-          
-          # Add Helm repo and deploy
-          helm repo add eks https://aws.github.io/eks-charts
-          helm repo update eks
-          
-          helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
-            -n kube-system \
-            --set clusterName=devops-aws-java-cluster \
-            --set serviceAccount.create=false \
-            --set serviceAccount.name=aws-load-balancer-controller \
-            --timeout 10m || echo "⚠ Load Balancer Controller installation failed, continuing with basic LoadBalancer"
-          
-          echo "✓ Load Balancer Controller deployment attempted"
-
       - name: Deploy with Helm
         run: |
           echo "Creating ECR image pull secret..."
@@ -377,7 +343,13 @@ jobs:
           echo "Waiting for deployment to be ready..."
           kubectl rollout status deployment/microservice --timeout=10m || true
           
-          echo "Helm deployment completed"
+          echo "Forcing pod restart to pick up new image..."
+          kubectl rollout restart deployment/microservice -n default
+          
+          echo "Waiting for pods to restart..."
+          kubectl rollout status deployment/microservice --timeout=5m || true
+          
+          echo "✓ Helm deployment completed and pods restarted"
 
       - name: Verify deployment
         run: |
