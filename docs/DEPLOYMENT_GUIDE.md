@@ -603,6 +603,82 @@ curl http://$LB_URL/actuator/prometheus
 ./infrastructure/scripts/phase-2-validate-destroyed.sh
 ```
 
+## Workflow Improvements & Optimizations
+
+### Workflow Trigger Optimization
+
+The Phase 3 (application deployment) workflow is optimized to trigger **only on application code changes**:
+
+```yaml
+on:
+  push:
+    paths:
+      - 'app/**'                              # Only trigger on app changes
+      - '.github/workflows/phase-3-deploy-app.yml'  # Allow workflow self-updates
+```
+
+**Benefits:**
+- ✅ Saves CI/CD resources (no unnecessary builds)
+- ✅ Faster feedback for developers
+- ✅ Infrastructure changes don't trigger app deployments
+- ✅ Documentation changes don't trigger builds
+
+### Pod Restart on Image Update
+
+The deployment is configured to automatically restart pods when a new image is deployed:
+
+**1. Image Pull Policy**
+```yaml
+image:
+  pullPolicy: Always  # Force pull on every pod start
+```
+
+**2. Deployment Strategy**
+```yaml
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0  # Zero-downtime deployments
+```
+
+**3. Workflow Restart Command**
+```bash
+kubectl rollout restart deployment/microservice
+```
+
+**Benefits:**
+- ✅ New code deploys immediately
+- ✅ Pods restart with latest image
+- ✅ Zero-downtime rolling updates
+- ✅ Automatic pod restart on image change
+
+### Testing Application Updates
+
+To test that application updates deploy successfully:
+
+1. **Make a code change** to `app/src/main/java/...`
+2. **Push to main branch**
+3. **Phase 3 workflow auto-triggers** (only on app changes)
+4. **Tests run automatically**
+5. **Docker image built and pushed**
+6. **Microservice updated on EKS**
+7. **Pods restart with new image**
+8. **New endpoints immediately available**
+
+Example: Adding a new API endpoint
+```bash
+# 1. Add new endpoint to HelloController.java
+# 2. Commit and push
+git add app/src/main/java/com/microservice/controller/HelloController.java
+git commit -m "feat: add new API endpoint"
+git push origin main
+
+# 3. Watch GitHub Actions workflow
+# 4. Once complete, test new endpoint
+curl http://$LB_DNS/api/new-endpoint
+```
+
 ## Next Steps
 
 1. Deploy the infrastructure (Phase 1)
